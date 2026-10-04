@@ -95,24 +95,24 @@ function openGame(game){
 }
 
 function cloudAuthHeaders(json=true){
-  const headers={Authorization:\`Bearer \${cloudState.token||''}\`,'X-Arc-Client':'arc-ubg'};
+  const headers={Authorization:`Bearer ${cloudState.token||''}`,'X-Arc-Client':'arc-ubg'};
   if(json)headers['Content-Type']='application/json';
   return headers;
 }
 function cloudSetStatus(label,state='connecting'){
   const el=$('#cloudApiStatus');if(!el)return;
-  el.className=\`cloud-status \${state}\`;
+  el.className=`cloud-status ${state}`;
   el.innerHTML='<i></i>'+label;
 }
 async function ensureCloudToken(){
   if(cloudState.token&&cloudState.tokenExpires>Date.now()+60_000)return cloudState.token;
-  const res=await fetch(\`\${CLOUD_API}/cloud/v1/browser-token\`,{
+  const res=await fetch(`${CLOUD_API}/cloud/v1/browser-token`,{
     method:'POST',
     headers:{'Content-Type':'application/json','X-Arc-Client':'arc-ubg'},
     body:'{}'
   });
   const data=await res.json().catch(()=>({}));
-  if(!res.ok)throw new Error(data.error||\`Arc Cloud auth failed (\${res.status})\`);
+  if(!res.ok)throw new Error(data.error||`Arc Cloud auth failed (${res.status})`);
   cloudState.token=data.token;
   cloudState.tokenExpires=Number(data.expires_at)||Date.now()+30*60_000;
   return cloudState.token;
@@ -122,8 +122,8 @@ async function loadCloudCatalog(){
   cloudState.loading=true;
   cloudSetStatus('Connecting','connecting');
   try{
-    const res=await fetch(\`\${CLOUD_API}/cloud/v1/catalog\`,{cache:'no-store'});
-    if(!res.ok)throw new Error(\`Catalog unavailable (\${res.status})\`);
+    const res=await fetch(`${CLOUD_API}/cloud/v1/catalog`,{cache:'no-store'});
+    if(!res.ok)throw new Error(`Catalog unavailable (${res.status})`);
     const data=await res.json();
     cloudState.games=Array.isArray(data)?data:[];
     cloudState.filtered=cloudState.games.slice();
@@ -136,7 +136,7 @@ async function loadCloudCatalog(){
   }catch(err){
     cloudSetStatus('Offline','offline');
     const grid=$('#cloudGrid');
-    if(grid)grid.innerHTML=\`<div class="cloud-empty"><b>Arc Cloud is unavailable.</b><span>\${escapeHtml(err.message||'Try again in a moment.')}</span><button class="secondary" id="retryCloud">Retry</button></div>\`;
+    if(grid)grid.innerHTML=`<div class="cloud-empty"><b>Arc Cloud is unavailable.</b><span>${escapeHtml(err.message||'Try again in a moment.')}</span><button class="secondary" id="retryCloud">Retry</button></div>`;
     setTimeout(()=>$('#retryCloud')?.addEventListener('click',()=>{cloudState.loading=false;cloudState.games=[];loadCloudCatalog()}),0);
   }finally{cloudState.loading=false}
 }
@@ -149,7 +149,7 @@ function cloudGameArt(game){
 function renderCloudSpotlight(){
   const game=cloudState.featured;if(!game)return;
   const bg=$('#cloudSpotlightBg'),title=$('#cloudSpotlightTitle'),desc=$('#cloudSpotlightDesc'),play=$('#cloudSpotlightPlay');
-  if(bg)bg.style.backgroundImage=\`url("\${String(cloudGameArt(game)).replace(/"/g,'%22')}")\`;
+  if(bg)bg.style.backgroundImage=`url("${String(cloudGameArt(game)).replace(/"/g,'%22')}")`;
   if(title)title.textContent=game.name||'Arc Cloud';
   if(desc)desc.textContent=game.description||'Play instantly from Arc Cloud.';
   if(play){
@@ -198,13 +198,13 @@ function renderCloudGames(){
     host.append(card);
   });
   const count=$('#cloudGameCount');
-  if(count)count.textContent=\`\${cloudState.filtered.length.toLocaleString()} games\`;
+  if(count)count.textContent=`${cloudState.filtered.length.toLocaleString()} games`;
   if(!cloudState.filtered.length)host.innerHTML='<div class="cloud-empty"><b>No games found.</b><span>Try another search or category.</span></div>';
 }
 function showCloudSession(game){
   closeCloudSession(false);
   const shell=document.createElement('div');shell.className='cloud-session';shell.id='cloudSession';
-  shell.innerHTML=\`
+  shell.innerHTML=`
     <div class="cloud-session-bar">
       <div class="cloud-session-game">
         <span class="cloud-session-dot"></span>
@@ -218,11 +218,11 @@ function showCloudSession(game){
     <div class="cloud-stage" id="cloudStage">
       <div class="cloud-loader">
         <img src="assets/arc-logo.svg" alt="" />
-        <b id="cloudLoaderTitle">Starting \${escapeHtml(game.name||'game')}</b>
+        <b id="cloudLoaderTitle">Starting ${escapeHtml(game.name||'game')}</b>
         <span id="cloudLoaderText">Connecting to Arc Cloud…</span>
         <div class="cloud-progress"><i id="cloudProgressBar"></i></div>
       </div>
-    </div>\`;
+    </div>`;
   $('.cloud-session-game b',shell).textContent=game.name||'Arc Cloud';
   document.body.append(shell);
   $('#cloudSessionClose')?.addEventListener('click',()=>closeCloudSession(true));
@@ -233,7 +233,7 @@ function setCloudSessionStatus(title,text,progress){
   if(status)status.textContent=text||title;
   if(loader)loader.textContent=title;
   if(sub)sub.textContent=text||'';
-  if(bar&&Number.isFinite(progress))bar.style.width=\`\${Math.max(4,Math.min(100,progress))}%\`;
+  if(bar&&Number.isFinite(progress))bar.style.width=`${Math.max(4,Math.min(100,progress))}%`;
 }
 async function readNdjson(res,onItem){
   if(!res.body?.getReader){
@@ -258,12 +258,12 @@ async function startCloudGame(game){
   try{
     await ensureCloudToken();
     setCloudSessionStatus('Preparing your cloud PC','Reserving a session…',14);
-    const res=await fetch(\`\${CLOUD_API}/cloud/v1/createSession\`,{
+    const res=await fetch(`${CLOUD_API}/cloud/v1/createSession`,{
       method:'POST',headers:cloudAuthHeaders(),body:JSON.stringify({game_key:game.game_key})
     });
     if(!res.ok){
       const data=await res.json().catch(()=>({}));
-      throw new Error(data.error||\`Session request failed (\${res.status})\`);
+      throw new Error(data.error||`Session request failed (${res.status})`);
     }
     let terminal=false;
     await readNdjson(res,item=>{
@@ -275,7 +275,7 @@ async function startCloudGame(game){
       if(item.status==='queue'){
         terminal=true;
         const pos=Number(item.queue_pos)||0;
-        setCloudSessionStatus('Waiting for a machine',pos?\`Queue position \${pos}\`:'Almost ready…',58);
+        setCloudSessionStatus('Waiting for a machine',pos?`Queue position ${pos}`:'Almost ready…',58);
         setTimeout(()=>pollCloudQueue(),3300);
       }
       if(item.status==='finished_queue'){
@@ -295,10 +295,10 @@ async function startCloudGame(game){
 async function pollCloudQueue(){
   const active=cloudState.active;if(!active?.uuid||active.started)return;
   try{
-    const res=await fetch(\`\${CLOUD_API}/cloud/v1/getQueue?uuid=\${encodeURIComponent(active.uuid)}\`,{headers:cloudAuthHeaders(false),cache:'no-store'});
+    const res=await fetch(`${CLOUD_API}/cloud/v1/getQueue?uuid=${encodeURIComponent(active.uuid)}`,{headers:cloudAuthHeaders(false),cache:'no-store'});
     const data=await res.json().catch(()=>({}));
     if(res.status===429){setTimeout(()=>pollCloudQueue(),3500);return}
-    if(!res.ok)throw new Error(data.error||\`Queue check failed (\${res.status})\`);
+    if(!res.ok)throw new Error(data.error||`Queue check failed (${res.status})`);
     if(data.status==='creating_account'){
       setCloudSessionStatus('Preparing your cloud PC','Still getting an account ready…',30);
       setTimeout(()=>pollCloudQueue(),3500);return;
@@ -309,7 +309,7 @@ async function pollCloudQueue(){
     }
     const pos=Number(data.queue_pos)||0;
     const pct=Math.max(55,Math.min(76,76-Math.min(pos,20)));
-    setCloudSessionStatus('Waiting for a machine',pos?\`Queue position \${pos}\`:'Almost ready…',pct);
+    setCloudSessionStatus('Waiting for a machine',pos?`Queue position ${pos}`:'Almost ready…',pct);
     setTimeout(()=>pollCloudQueue(),3500);
   }catch(err){cloudSessionError(err)}
 }
@@ -317,11 +317,11 @@ async function activateCloudSession(){
   const active=cloudState.active;if(!active?.uuid||active.started)return;
   active.started=true;
   try{
-    const res=await fetch(\`\${CLOUD_API}/cloud/v1/startGame\`,{
+    const res=await fetch(`${CLOUD_API}/cloud/v1/startGame`,{
       method:'POST',headers:cloudAuthHeaders(),body:JSON.stringify({uuid:active.uuid})
     });
     const data=await res.json().catch(()=>({}));
-    if(!res.ok)throw new Error(data.error||\`Start failed (\${res.status})\`);
+    if(!res.ok)throw new Error(data.error||`Start failed (${res.status})`);
     active.maxSeconds=Number(data.max_seconds)||1140;
     active.startedAt=Date.now();
     const stage=$('#cloudStage');
@@ -330,7 +330,7 @@ async function activateCloudSession(){
     frame.className='cloud-frame';
     frame.allow='autoplay; fullscreen; gamepad; clipboard-read; clipboard-write';
     frame.allowFullscreen=true;
-    frame.src=\`\${CLOUD_API}/cloud/v1/embed?id=\${encodeURIComponent(active.uuid)}\`;
+    frame.src=`${CLOUD_API}/cloud/v1/embed?id=${encodeURIComponent(active.uuid)}`;
     stage.replaceChildren(frame);
     $('#cloudSessionStatus').textContent=data.relay_available?'Streaming · relay ready':'Streaming';
     startCloudHeartbeat();
@@ -345,7 +345,7 @@ function startCloudHeartbeat(){
   cloudState.pingTimer=setInterval(async()=>{
     const active=cloudState.active;if(!active?.uuid||!active.started)return;
     try{
-      const res=await fetch(\`\${CLOUD_API}/cloud/v1/pingSession\`,{
+      const res=await fetch(`${CLOUD_API}/cloud/v1/pingSession`,{
         method:'POST',headers:cloudAuthHeaders(),body:JSON.stringify({uuid:active.uuid})
       });
       if(!res.ok&&res.status!==429){
@@ -366,7 +366,7 @@ function updateCloudTime(){
   const active=cloudState.active;if(!active?.started)return;
   const remaining=Math.max(0,(active.maxSeconds||1140)-Math.floor((Date.now()-active.startedAt)/1000));
   const el=$('#cloudSessionTime');
-  if(el)el.textContent=\`\${Math.floor(remaining/60)}:\${String(remaining%60).padStart(2,'0')}\`;
+  if(el)el.textContent=`${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}`;
   if(remaining>0&&cloudState.active===active)setTimeout(updateCloudTime,1000);
 }
 function cloudSessionError(err){
@@ -387,7 +387,7 @@ async function closeCloudSession(sendQuit=true){
   $('#cloudSession')?.remove();
   if(sendQuit&&active?.uuid&&cloudState.token){
     try{
-      await fetch(\`\${CLOUD_API}/cloud/v1/quitSession\`,{
+      await fetch(`${CLOUD_API}/cloud/v1/quitSession`,{
         method:'POST',headers:cloudAuthHeaders(),body:JSON.stringify({uuid:active.uuid}),keepalive:true
       });
     }catch{}
@@ -398,7 +398,7 @@ function setupCloud(){
   window.addEventListener('pagehide',()=>{
     const active=cloudState.active;
     if(active?.uuid&&cloudState.token){
-      fetch(\`\${CLOUD_API}/cloud/v1/quitSession\`,{
+      fetch(`${CLOUD_API}/cloud/v1/quitSession`,{
         method:'POST',headers:cloudAuthHeaders(),body:JSON.stringify({uuid:active.uuid}),keepalive:true
       }).catch(()=>{});
     }
