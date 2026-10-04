@@ -95,19 +95,19 @@
       </header>
 
       <section class="view active" id="view-home">
-        <div class="hero">
-          <img class="hero-bg" src="assets/hero.svg" alt="" />
+        <div class="hero" id="homeHero">
+          <img class="hero-bg" id="homeHeroBg" src="assets/hero.svg" alt="" />
           <div class="hero-scrim"></div>
           <div class="hero-copy">
-            <span class="eyebrow">ARC <i></i> 3,000+ GAMES</span>
-            <h1>Your whole break,<br>in one place.</h1>
-            <p>Games, cloud gaming, movies, shows, music and private chatrooms. Fast, clean, and built to stay out of your way.</p>
+            <span class="eyebrow" id="homeHeroEyebrow">ARC <i></i> FEATURED GAME</span>
+            <h1 id="homeHeroTitle">Your whole break,<br>in one place.</h1>
+            <p id="homeHeroText">Loading featured games from the Arc library.</p>
             <div class="hero-actions">
-              <button class="primary" data-go="games">Browse games</button>
-              <button class="secondary" data-go="cloud">Open cloud</button>
+              <button class="primary" id="homeHeroPlay" type="button" disabled>Play now</button>
+              <button class="secondary" data-go="games">Browse games</button>
             </div>
+            <div class="hero-dots" id="homeHeroDots" aria-label="Featured games"></div>
           </div>
-          <img class="hero-logo" src="assets/arc-logo.svg" alt="" />
         </div>
 
         <div class="section-heading">
