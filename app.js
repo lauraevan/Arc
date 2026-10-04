@@ -980,7 +980,7 @@ function renderMusicTopResult(){
   const img=document.createElement('img');img.alt='';img.src=musicThumb(track);
   const copy=document.createElement('div');
   const title=document.createElement('b');title.textContent=track.title;
-  const meta=document.createElement('span');meta.textContent=track.artist+' · Song';
+  const meta=document.createElement('span');meta.textContent=track.artist+' · '+(track.album||'Song');
   const play=document.createElement('span');play.className='music-top-play';play.setAttribute('aria-hidden','true');play.textContent='▶';
   copy.append(title,meta);card.append(img,copy,play);card.onclick=()=>playMusicTrack(0);top.append(label,card);
 }
@@ -1001,7 +1001,7 @@ function renderMusicResults(){
     const copy=document.createElement('span');copy.className='music-track-copy';
     const name=document.createElement('b');name.textContent=track.title;
     const artist=document.createElement('small');artist.textContent=track.artist;copy.append(name,artist);
-    const album=document.createElement('span');album.className='music-track-album';album.textContent='YouTube';
+    const album=document.createElement('span');album.className='music-track-album';album.textContent=track.album||'Single';
     const time=document.createElement('span');time.className='music-track-time';time.textContent=track.timestamp||musicTime(track.duration);
     row.append(num,art,copy,album,time);row.onclick=()=>playMusicTrack(index);host.append(row);
   });
@@ -1029,7 +1029,7 @@ async function searchMusic(query){
 function updateMusicSession(track){
   if(!('mediaSession' in navigator)||!track)return;
   try{
-    navigator.mediaSession.metadata=new MediaMetadata({title:track.title||'Untitled',artist:track.artist||'Unknown artist',album:'Arc Music',artwork:[{src:musicThumb(track),sizes:'480x360',type:'image/jpeg'}]});
+    navigator.mediaSession.metadata=new MediaMetadata({title:track.title||'Untitled',artist:track.artist||'Unknown artist',album:track.album||'Arc Music',artwork:[{src:musicThumb(track),sizes:'544x544',type:'image/jpeg'}]});
     navigator.mediaSession.playbackState=musicState.playing?'playing':'paused';
   }catch(_){ }
 }
