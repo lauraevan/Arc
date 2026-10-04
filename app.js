@@ -52,6 +52,7 @@ function gameCard(game){
   const el=document.createElement('button');
   el.className='game-card';
   el.type='button';
+  el.setAttribute('aria-label','Play '+(game.name||'game'));
   el.innerHTML=`<div class="game-art"><img loading="lazy" decoding="async" fetchpriority="low" alt="" src="${imageUrl(game)}"></div>
     <div class="game-meta"><div class="game-name"></div><div class="game-sub"></div></div>`;
   $('.game-name',el).textContent=game.name||'Untitled';
@@ -269,6 +270,7 @@ function renderCloudTags(){
   tags.forEach(tag=>{
     const b=document.createElement('button');
     b.type='button';b.className='cloud-tag'+(cloudState.tag===tag?' active':'');
+    b.setAttribute('aria-label','Filter cloud games by '+tag);
     b.textContent=tag;
     b.onclick=()=>{cloudState.tag=tag;applyCloudFilter()};
     host.append(b);
@@ -288,6 +290,7 @@ function renderCloudGames(){
   cloudState.filtered.forEach(game=>{
     const card=document.createElement('button');
     card.type='button';card.className='cloud-game-card';
+    card.setAttribute('aria-label','Play '+(game.name||'cloud game'));
     const art=document.createElement('div');art.className='cloud-game-art';
     const img=document.createElement('img');img.loading='lazy';img.alt='';img.src=cloudGameArt(game);
     img.addEventListener('error',()=>{img.style.opacity='.15'});
@@ -528,6 +531,7 @@ function mediaCard(item,forcedType=''){
   const type=mediaType(item,forcedType);
   const card=document.createElement('button');
   card.type='button';card.className='media-card';
+  card.setAttribute('aria-label','Open '+mediaTitle(item));
   const poster=mediaPoster(item);
   card.innerHTML=`<div class="media-poster">${poster?`<img loading="lazy" alt="" src="${poster}">`:'<div class="media-poster-fallback">ARC</div>'}</div><div class="media-card-copy"><b></b><span></span></div>`;
   $('.media-card-copy b',card).textContent=mediaTitle(item);
