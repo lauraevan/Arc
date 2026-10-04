@@ -10,11 +10,25 @@ const cloudState={games:[],filtered:[],tag:'All',featured:null,token:null,tokenE
 const webState={target:null,proxyUrl:null};
 const mediaState={loaded:false,loading:false,home:null,featured:null,query:'',hlsPromise:null};
 const WALLPAPER_THEMES={
-  fireflies:{file:'assets/wallpapers/fireflies.b64',accent:'#d5b36a',dim:.48},
-  cherry:{file:'assets/wallpapers/cherry.b64',accent:'#e2a2ba',dim:.46},
-  makima:{file:'assets/wallpapers/makima.b64',accent:'#d46558',dim:.52},
-  'green-tree':{file:'assets/wallpapers/green-tree.b64',accent:'#78a86b',dim:.45},
-  'japanese-summer':{file:'assets/wallpapers/japanese-summer.b64',accent:'#d79b70',dim:.44}
+  fireflies:{
+    url:'https://www.desktophut.com/files/1654706911-1654706911-pc-fireflies-forest-live-wallpaper.mp4',
+    fallback:'assets/wallpapers/fireflies.b64',accent:'#d5b36a',dim:.58
+  },
+  cherry:{
+    url:'https://motionbgs.com/dl/hd/7897',
+    fallback:'assets/wallpapers/cherry.b64',accent:'#e2a2ba',dim:.56
+  },
+  makima:{
+    url:'https://motionbgs.com/dl/hd/9059',
+    fallback:'assets/wallpapers/makima.b64',accent:'#d46558',dim:.62
+  },
+  'green-tree':{
+    url:'https://www.desktophut.com/files/1qEk6XwmHf-CalmGreenTreeLiveWallpaper.mp4',
+    fallback:'assets/wallpapers/green-tree.b64',accent:'#78a86b',dim:.60
+  },
+  'japanese-summer':{
+    file:'assets/wallpapers/japanese-summer.b64',accent:'#d79b70',dim:.58
+  }
 };
 const wallpaperState={urls:new Map(),token:0};
 
@@ -849,7 +863,13 @@ async function wallpaperUrl(name){
   if(wallpaperState.urls.has(name))return wallpaperState.urls.get(name);
   const def=WALLPAPER_THEMES[name];
   if(!def)return null;
-  const res=await fetch(def.file,{cache:'force-cache'});
+  if(def.url){
+    wallpaperState.urls.set(name,def.url);
+    return def.url;
+  }
+  const file=def.file||def.fallback;
+  if(!file)return null;
+  const res=await fetch(file,{cache:'force-cache'});
   if(!res.ok)throw new Error('wallpaper request failed');
   const encoded=(await res.text()).trim();
   const raw=atob(encoded);
@@ -883,11 +903,14 @@ async function applyWallpaperTheme(name){
     const url=await wallpaperUrl(name);
     if(token!==wallpaperState.token||document.body.dataset.theme!==name)return;
     video.hidden=false;
+    video.style.opacity='0';
     if(video.src!==url){
       video.src=url;
       video.load();
     }
-    syncWallpaperPlayback();
+    const reveal=()=>{video.style.opacity='1';syncWallpaperPlayback()};
+    if(video.readyState>=2)reveal();
+    else video.addEventListener('loadeddata',reveal,{once:true});
   }catch(err){
     console.error('Wallpaper failed to load',err);
     video.hidden=true;
