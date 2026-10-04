@@ -119,7 +119,8 @@ function startFeaturedAutoScroll(){
     last=now;
 
     if(row.dataset.autoPaused!=='1'&&state.view==='home'&&!document.hidden&&!document.body.classList.contains('reduce-motion')){
-      const loopWidth=row.scrollWidth/2;
+      const firstClone=row.querySelector('[data-carousel-clone="1"]');
+      const loopWidth=firstClone?firstClone.offsetLeft-row.firstElementChild.offsetLeft:row.scrollWidth/2;
       if(loopWidth>row.clientWidth){
         row.scrollLeft+=speed*(dt/1000);
         if(row.scrollLeft>=loopWidth)row.scrollLeft-=loopWidth;
