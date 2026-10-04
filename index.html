@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <video id="themeWallpaper" class="theme-wallpaper-video" muted loop playsinline webkit-playsinline preload="none" aria-hidden="true" hidden></video>
+  <div class="theme-wallpaper-shade" aria-hidden="true"></div>
   <div class="app-shell">
     <aside class="sidebar" id="sidebar">
       <div class="brand">
@@ -275,13 +277,43 @@
         <button class="primary">Coming next</button>
       </section>
 
-      <section class="view simple-view" id="view-themes">
+      <section class="view simple-view themes-view" id="view-themes">
         <span class="kicker">PERSONALIZE</span>
         <h1>Themes</h1>
+        <p class="themes-intro">Change Arc's colors or use a live wallpaper across the whole interface.</p>
+
+        <div class="theme-group-head">
+          <h2>Color themes</h2>
+          <span>Fast and lightweight</span>
+        </div>
         <div class="theme-grid">
-          <button class="theme-option selected" data-theme="arc"><span class="theme-swatch arc"></span><b>Arc</b><small>Black + orange</small></button>
-          <button class="theme-option" data-theme="mono"><span class="theme-swatch mono"></span><b>Mono</b><small>Black + white</small></button>
-          <button class="theme-option" data-theme="midnight"><span class="theme-swatch midnight"></span><b>Midnight</b><small>Soft blue-black</small></button>
+          <button class="theme-option selected" data-theme="arc"><span class="theme-swatch" style="--swatch-bg:#090909;--swatch-accent:#f07a22"></span><b>Arc</b><small>Black + orange</small></button>
+          <button class="theme-option" data-theme="mono"><span class="theme-swatch" style="--swatch-bg:#080808;--swatch-accent:#f2f2f2"></span><b>Mono</b><small>Black + white</small></button>
+          <button class="theme-option" data-theme="oled"><span class="theme-swatch" style="--swatch-bg:#000;--swatch-accent:#fff"></span><b>OLED</b><small>Pure black</small></button>
+          <button class="theme-option" data-theme="graphite"><span class="theme-swatch" style="--swatch-bg:#121316;--swatch-accent:#b8bec8"></span><b>Graphite</b><small>Neutral gray</small></button>
+          <button class="theme-option" data-theme="midnight"><span class="theme-swatch" style="--swatch-bg:#080a0e;--swatch-accent:#8aa2c8"></span><b>Midnight</b><small>Soft blue-black</small></button>
+          <button class="theme-option" data-theme="cobalt"><span class="theme-swatch" style="--swatch-bg:#070b12;--swatch-accent:#4f8fff"></span><b>Cobalt</b><small>Deep blue</small></button>
+          <button class="theme-option" data-theme="crimson"><span class="theme-swatch" style="--swatch-bg:#0d0708;--swatch-accent:#df5963"></span><b>Crimson</b><small>Black + red</small></button>
+          <button class="theme-option" data-theme="forest"><span class="theme-swatch" style="--swatch-bg:#07100b;--swatch-accent:#78a86b"></span><b>Forest</b><small>Deep green</small></button>
+          <button class="theme-option" data-theme="sakura"><span class="theme-swatch" style="--swatch-bg:#120b0f;--swatch-accent:#e4a1b7"></span><b>Sakura</b><small>Muted pink</small></button>
+          <button class="theme-option" data-theme="violet"><span class="theme-swatch" style="--swatch-bg:#0d0912;--swatch-accent:#a58adf"></span><b>Violet</b><small>Purple-black</small></button>
+          <button class="theme-option" data-theme="amber"><span class="theme-swatch" style="--swatch-bg:#110c05;--swatch-accent:#d99b42"></span><b>Amber</b><small>Warm gold</small></button>
+          <button class="theme-option" data-theme="frost"><span class="theme-swatch" style="--swatch-bg:#091013;--swatch-accent:#8fc5d6"></span><b>Frost</b><small>Cold blue</small></button>
+          <button class="theme-option" data-theme="terminal"><span class="theme-swatch" style="--swatch-bg:#050806;--swatch-accent:#65b879"></span><b>Terminal</b><small>Black + green</small></button>
+          <button class="theme-option" data-theme="sand"><span class="theme-swatch" style="--swatch-bg:#110f0b;--swatch-accent:#c7a770"></span><b>Sand</b><small>Warm neutral</small></button>
+          <button class="theme-option" data-theme="ocean"><span class="theme-swatch" style="--swatch-bg:#061012;--swatch-accent:#54b7b2"></span><b>Ocean</b><small>Dark teal</small></button>
+        </div>
+
+        <div class="theme-group-head live-theme-head">
+          <h2>Live wallpapers</h2>
+          <span>From your wallpaper collection</span>
+        </div>
+        <div class="theme-grid live-theme-grid">
+          <button class="theme-option live-theme" data-theme="fireflies" data-wallpaper="fireflies"><span class="theme-swatch live fireflies"><i>LIVE</i></span><b>Fireflies</b><small>Minecraft forest</small></button>
+          <button class="theme-option live-theme" data-theme="cherry" data-wallpaper="cherry"><span class="theme-swatch live cherry"><i>LIVE</i></span><b>Cherry Blossoms</b><small>Sakura branches</small></button>
+          <button class="theme-option live-theme" data-theme="makima" data-wallpaper="makima"><span class="theme-swatch live makima"><i>LIVE</i></span><b>Makima</b><small>Dark red</small></button>
+          <button class="theme-option live-theme" data-theme="green-tree" data-wallpaper="green-tree"><span class="theme-swatch live green-tree"><i>LIVE</i></span><b>Green Tree</b><small>Calm nature</small></button>
+          <button class="theme-option live-theme" data-theme="japanese-summer" data-wallpaper="japanese-summer"><span class="theme-swatch live japanese-summer"><i>LIVE</i></span><b>Japanese Summer</b><small>Minecraft garden</small></button>
         </div>
       </section>
 
