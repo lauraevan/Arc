@@ -270,11 +270,34 @@
         </div>
       </section>
 
-      <section class="view simple-view" id="view-music">
-        <span class="kicker">LISTEN</span>
-        <h1>Music</h1>
-        <p>Fast search, instant playback and a player that stays out of your way.</p>
-        <button class="primary">Coming next</button>
+      <section class="view music-view" id="view-music">
+        <div class="music-head">
+          <span class="kicker">LISTEN</span>
+          <h1>Music</h1>
+          <p>Search YouTube Music and start listening without leaving Arc.</p>
+          <form class="music-search" id="musicSearchForm">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <input id="musicSearchInput" type="search" autocomplete="off" spellcheck="false" aria-label="Search music" placeholder="Search songs, artists or albums" />
+            <button type="submit">Search</button>
+          </form>
+        </div>
+
+        <div class="music-state" id="musicIdle">
+          <div class="music-state-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>
+          </div>
+          <b>Find something to play</b>
+          <span>Search is powered by Arc's YouTube audio backend.</span>
+        </div>
+
+        <div class="music-results-head" id="musicResultsHead" hidden>
+          <div>
+            <span class="kicker">RESULTS</span>
+            <h2 id="musicResultsTitle">Songs</h2>
+          </div>
+          <span id="musicStatus" role="status" aria-live="polite"></span>
+        </div>
+        <div class="music-results" id="musicResults" role="list"></div>
       </section>
 
       <section class="view simple-view" id="view-chat">
@@ -334,6 +357,42 @@
       </section>
     </main>
   </div>
+
+
+  <audio id="musicAudio" preload="none"></audio>
+  <section class="music-player" id="musicPlayer" aria-label="Music player" hidden>
+    <div class="music-player-track">
+      <img id="musicPlayerArt" alt="" />
+      <div class="music-player-meta">
+        <b id="musicPlayerTitle">Nothing playing</b>
+        <span id="musicPlayerArtist">Arc Music</span>
+      </div>
+    </div>
+
+    <div class="music-player-center">
+      <div class="music-player-controls">
+        <button id="musicPrev" type="button" aria-label="Previous track">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M18 6l-9 6 9 6z"/></svg>
+        </button>
+        <button class="music-main-play" id="musicPlay" type="button" aria-label="Play">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path id="musicPlayPath" d="m8 5 11 7-11 7z"/></svg>
+        </button>
+        <button id="musicNext" type="button" aria-label="Next track">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5v14M6 6l9 6-9 6z"/></svg>
+        </button>
+      </div>
+      <div class="music-progress-row">
+        <span id="musicCurrentTime">0:00</span>
+        <input id="musicProgress" type="range" min="0" max="1000" value="0" aria-label="Music playback position" />
+        <span id="musicDuration">0:00</span>
+      </div>
+    </div>
+
+    <div class="music-player-side">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10h3l4-3v10l-4-3H5z"/><path d="M15 9.5a4 4 0 0 1 0 5"/></svg>
+      <input id="musicVolume" type="range" min="0" max="1" step="0.01" value="0.9" aria-label="Music volume" />
+    </div>
+  </section>
 
   <div class="mobile-backdrop" id="mobileBackdrop"></div>
   <script src="app.js"></script>
