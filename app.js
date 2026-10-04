@@ -1,7 +1,9 @@
 const GAME_DATA='https://raw.githubusercontent.com/lauraevan/Game-Stash/main/games.json';
 const STASH_BASE='https://raw.githack.com/lauraevan/Game-Stash/main/';
 const STASH_RAW='https://raw.githubusercontent.com/lauraevan/Game-Stash/main/';
+const CLOUD_API='https://stratus-api-ceav.onrender.com';
 const state={games:[],filtered:[],visible:60,view:'home'};
+const cloudState={games:[],filtered:[],tag:'All',featured:null,token:null,tokenExpires:0,loading:false,active:null,pingTimer:null};
 
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -91,6 +93,319 @@ function openGame(game){
   close.onclick=()=>player.remove();
   bar.append(title,spacer,pop,close);player.append(bar,frame);document.body.append(player);
 }
+
+function cloudAuthHeaders(json=true){
+  const headers={Authorization:\`Bearer \${cloudState.token||''}\`,'X-Arc-Client':'arc-ubg'};
+  if(json)headers['Content-Type']='application/json';
+  return headers;
+}
+function cloudSetStatus(label,state='connecting'){
+  const el=$('#cloudApiStatus');if(!el)return;
+  el.className=\`cloud-status \${state}\`;
+  el.innerHTML='<i></i>'+label;
+}
+async function ensureCloudToken(){
+  if(cloudState.token&&cloudState.tokenExpires>Date.now()+60_000)return cloudState.token;
+  const res=await fetch(\`\${CLOUD_API}/cloud/v1/browser-token\`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-Arc-Client':'arc-ubg'},
+    body:'{}'
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok)throw new Error(data.error||\`Arc Cloud auth failed (\${res.status})\`);
+  cloudState.token=data.token;
+  cloudState.tokenExpires=Number(data.expires_at)||Date.now()+30*60_000;
+  return cloudState.token;
+}
+async function loadCloudCatalog(){
+  if(cloudState.loading||cloudState.games.length)return;
+  cloudState.loading=true;
+  cloudSetStatus('Connecting','connecting');
+  try{
+    const res=await fetch(\`\${CLOUD_API}/cloud/v1/catalog\`,{cache:'no-store'});
+    if(!res.ok)throw new Error(\`Catalog unavailable (\${res.status})\`);
+    const data=await res.json();
+    cloudState.games=Array.isArray(data)?data:[];
+    cloudState.filtered=cloudState.games.slice();
+    cloudState.featured=cloudState.games.find(g=>/black myth|battlefield|red dead/i.test(g.name||''))||cloudState.games[0]||null;
+    renderCloudSpotlight();
+    renderCloudTags();
+    renderCloudGames();
+    cloudSetStatus('Online','online');
+    ensureCloudToken().catch(()=>{});
+  }catch(err){
+    cloudSetStatus('Offline','offline');
+    const grid=$('#cloudGrid');
+    if(grid)grid.innerHTML=\`<div class="cloud-empty"><b>Arc Cloud is unavailable.</b><span>\${escapeHtml(err.message||'Try again in a moment.')}</span><button class="secondary" id="retryCloud">Retry</button></div>\`;
+    setTimeout(()=>$('#retryCloud')?.addEventListener('click',()=>{cloudState.loading=false;cloudState.games=[];loadCloudCatalog()}),0);
+  }finally{cloudState.loading=false}
+}
+function escapeHtml(value=''){
+  return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function cloudGameArt(game){
+  return game.cover||game.image||'';
+}
+function renderCloudSpotlight(){
+  const game=cloudState.featured;if(!game)return;
+  const bg=$('#cloudSpotlightBg'),title=$('#cloudSpotlightTitle'),desc=$('#cloudSpotlightDesc'),play=$('#cloudSpotlightPlay');
+  if(bg)bg.style.backgroundImage=\`url("\${String(cloudGameArt(game)).replace(/"/g,'%22')}")\`;
+  if(title)title.textContent=game.name||'Arc Cloud';
+  if(desc)desc.textContent=game.description||'Play instantly from Arc Cloud.';
+  if(play){
+    play.disabled=false;
+    play.onclick=()=>startCloudGame(game);
+  }
+}
+function renderCloudTags(){
+  const host=$('#cloudTags');if(!host)return;
+  const counts=new Map();
+  cloudState.games.forEach(g=>(g.tags||[]).forEach(t=>counts.set(t,(counts.get(t)||0)+1)));
+  const tags=['All',...Array.from(counts.entries()).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([t])=>t)];
+  host.innerHTML='';
+  tags.forEach(tag=>{
+    const b=document.createElement('button');
+    b.type='button';b.className='cloud-tag'+(cloudState.tag===tag?' active':'');
+    b.textContent=tag;
+    b.onclick=()=>{cloudState.tag=tag;applyCloudFilter()};
+    host.append(b);
+  });
+}
+function applyCloudFilter(){
+  const q=($('#cloudSearch')?.value||'').trim().toLowerCase();
+  cloudState.filtered=cloudState.games.filter(g=>{
+    const text=[g.name,g.description,...(g.tags||[])].filter(Boolean).join(' ').toLowerCase();
+    return (!q||text.includes(q))&&(cloudState.tag==='All'||(g.tags||[]).includes(cloudState.tag));
+  });
+  renderCloudTags();renderCloudGames();
+}
+function renderCloudGames(){
+  const host=$('#cloudGrid');if(!host)return;
+  host.innerHTML='';
+  cloudState.filtered.forEach(game=>{
+    const card=document.createElement('button');
+    card.type='button';card.className='cloud-game-card';
+    const art=document.createElement('div');art.className='cloud-game-art';
+    const img=document.createElement('img');img.loading='lazy';img.alt='';img.src=cloudGameArt(game);
+    img.addEventListener('error',()=>{img.style.opacity='.15'});
+    const play=document.createElement('span');play.className='cloud-play-badge';play.innerHTML='<svg viewBox="0 0 24 24"><path d="m9 7 8 5-8 5Z"/></svg>';
+    art.append(img,play);
+    const meta=document.createElement('div');meta.className='cloud-game-meta';
+    const name=document.createElement('div');name.className='cloud-game-name';name.textContent=game.name||'Untitled';
+    const tags=document.createElement('div');tags.className='cloud-game-tags';tags.textContent=(game.tags||[]).slice(0,2).join(' · ')||'Cloud';
+    meta.append(name,tags);card.append(art,meta);
+    card.onclick=()=>startCloudGame(game);
+    host.append(card);
+  });
+  const count=$('#cloudGameCount');
+  if(count)count.textContent=\`\${cloudState.filtered.length.toLocaleString()} games\`;
+  if(!cloudState.filtered.length)host.innerHTML='<div class="cloud-empty"><b>No games found.</b><span>Try another search or category.</span></div>';
+}
+function showCloudSession(game){
+  closeCloudSession(false);
+  const shell=document.createElement('div');shell.className='cloud-session';shell.id='cloudSession';
+  shell.innerHTML=\`
+    <div class="cloud-session-bar">
+      <div class="cloud-session-game">
+        <span class="cloud-session-dot"></span>
+        <div><b></b><small id="cloudSessionStatus">Preparing session…</small></div>
+      </div>
+      <div class="cloud-session-tools">
+        <span class="cloud-time" id="cloudSessionTime">19:00</span>
+        <button class="cloud-session-close" id="cloudSessionClose" aria-label="Exit cloud game">×</button>
+      </div>
+    </div>
+    <div class="cloud-stage" id="cloudStage">
+      <div class="cloud-loader">
+        <img src="assets/arc-logo.svg" alt="" />
+        <b id="cloudLoaderTitle">Starting \${escapeHtml(game.name||'game')}</b>
+        <span id="cloudLoaderText">Connecting to Arc Cloud…</span>
+        <div class="cloud-progress"><i id="cloudProgressBar"></i></div>
+      </div>
+    </div>\`;
+  $('.cloud-session-game b',shell).textContent=game.name||'Arc Cloud';
+  document.body.append(shell);
+  $('#cloudSessionClose')?.addEventListener('click',()=>closeCloudSession(true));
+  return shell;
+}
+function setCloudSessionStatus(title,text,progress){
+  const status=$('#cloudSessionStatus'),loader=$('#cloudLoaderTitle'),sub=$('#cloudLoaderText'),bar=$('#cloudProgressBar');
+  if(status)status.textContent=text||title;
+  if(loader)loader.textContent=title;
+  if(sub)sub.textContent=text||'';
+  if(bar&&Number.isFinite(progress))bar.style.width=\`\${Math.max(4,Math.min(100,progress))}%\`;
+}
+async function readNdjson(res,onItem){
+  if(!res.body?.getReader){
+    const txt=await res.text();
+    txt.split(/\\n+/).filter(Boolean).forEach(line=>{try{onItem(JSON.parse(line))}catch{}});
+    return;
+  }
+  const reader=res.body.getReader();const decoder=new TextDecoder();let buf='';
+  while(true){
+    const {done,value}=await reader.read();
+    if(done)break;
+    buf+=decoder.decode(value,{stream:true});
+    const lines=buf.split('\\n');buf=lines.pop()||'';
+    for(const line of lines){if(!line.trim())continue;try{onItem(JSON.parse(line))}catch{}}
+  }
+  if(buf.trim()){try{onItem(JSON.parse(buf))}catch{}}
+}
+async function startCloudGame(game){
+  if(cloudState.active)return;
+  showCloudSession(game);
+  cloudState.active={game,uuid:null,started:false};
+  try{
+    await ensureCloudToken();
+    setCloudSessionStatus('Preparing your cloud PC','Reserving a session…',14);
+    const res=await fetch(\`\${CLOUD_API}/cloud/v1/createSession\`,{
+      method:'POST',headers:cloudAuthHeaders(),body:JSON.stringify({game_key:game.game_key})
+    });
+    if(!res.ok){
+      const data=await res.json().catch(()=>({}));
+      throw new Error(data.error||\`Session request failed (\${res.status})\`);
+    }
+    let terminal=false;
+    await readNdjson(res,item=>{
+      if(!cloudState.active)return;
+      if(item.uuid)cloudState.active.uuid=item.uuid;
+      if(item.status==='creating_account')setCloudSessionStatus('Preparing your cloud PC','Getting a session ready…',24);
+      if(item.status==='account_ready')setCloudSessionStatus('Account ready','Contacting the game server…',38);
+      if(item.status==='requesting_game')setCloudSessionStatus('Requesting game','Checking availability…',50);
+      if(item.status==='queue'){
+        terminal=true;
+        const pos=Number(item.queue_pos)||0;
+        setCloudSessionStatus('Waiting for a machine',pos?\`Queue position \${pos}\`:'Almost ready…',58);
+        setTimeout(()=>pollCloudQueue(),3300);
+      }
+      if(item.status==='finished_queue'){
+        terminal=true;
+        setCloudSessionStatus('Machine ready','Starting stream…',78);
+        activateCloudSession();
+      }
+      if(item.status==='error')throw new Error(item.error||'Cloud session failed');
+    });
+    if(!terminal&&cloudState.active?.uuid&&!cloudState.active.started){
+      setTimeout(()=>pollCloudQueue(),3300);
+    }
+  }catch(err){
+    cloudSessionError(err);
+  }
+}
+async function pollCloudQueue(){
+  const active=cloudState.active;if(!active?.uuid||active.started)return;
+  try{
+    const res=await fetch(\`\${CLOUD_API}/cloud/v1/getQueue?uuid=\${encodeURIComponent(active.uuid)}\`,{headers:cloudAuthHeaders(false),cache:'no-store'});
+    const data=await res.json().catch(()=>({}));
+    if(res.status===429){setTimeout(()=>pollCloudQueue(),3500);return}
+    if(!res.ok)throw new Error(data.error||\`Queue check failed (\${res.status})\`);
+    if(data.status==='creating_account'){
+      setCloudSessionStatus('Preparing your cloud PC','Still getting an account ready…',30);
+      setTimeout(()=>pollCloudQueue(),3500);return;
+    }
+    if(data.status==='finished_queue'){
+      setCloudSessionStatus('Machine ready','Starting stream…',80);
+      await activateCloudSession();return;
+    }
+    const pos=Number(data.queue_pos)||0;
+    const pct=Math.max(55,Math.min(76,76-Math.min(pos,20)));
+    setCloudSessionStatus('Waiting for a machine',pos?\`Queue position \${pos}\`:'Almost ready…',pct);
+    setTimeout(()=>pollCloudQueue(),3500);
+  }catch(err){cloudSessionError(err)}
+}
+async function activateCloudSession(){
+  const active=cloudState.active;if(!active?.uuid||active.started)return;
+  active.started=true;
+  try{
+    const res=await fetch(\`\${CLOUD_API}/cloud/v1/startGame\`,{
+      method:'POST',headers:cloudAuthHeaders(),body:JSON.stringify({uuid:active.uuid})
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(data.error||\`Start failed (\${res.status})\`);
+    active.maxSeconds=Number(data.max_seconds)||1140;
+    active.startedAt=Date.now();
+    const stage=$('#cloudStage');
+    if(!stage)return;
+    const frame=document.createElement('iframe');
+    frame.className='cloud-frame';
+    frame.allow='autoplay; fullscreen; gamepad; clipboard-read; clipboard-write';
+    frame.allowFullscreen=true;
+    frame.src=\`\${CLOUD_API}/cloud/v1/embed?id=\${encodeURIComponent(active.uuid)}\`;
+    stage.replaceChildren(frame);
+    $('#cloudSessionStatus').textContent=data.relay_available?'Streaming · relay ready':'Streaming';
+    startCloudHeartbeat();
+    updateCloudTime();
+  }catch(err){
+    active.started=false;
+    cloudSessionError(err);
+  }
+}
+function startCloudHeartbeat(){
+  clearInterval(cloudState.pingTimer);
+  cloudState.pingTimer=setInterval(async()=>{
+    const active=cloudState.active;if(!active?.uuid||!active.started)return;
+    try{
+      const res=await fetch(\`\${CLOUD_API}/cloud/v1/pingSession\`,{
+        method:'POST',headers:cloudAuthHeaders(),body:JSON.stringify({uuid:active.uuid})
+      });
+      if(!res.ok&&res.status!==429){
+        const data=await res.json().catch(()=>({}));
+        throw new Error(data.error||'Cloud session ended');
+      }
+      if(res.ok){
+        const data=await res.json().catch(()=>null);
+        if(data?.session_time_limit_seconds)active.maxSeconds=data.session_time_limit_seconds;
+      }
+    }catch(err){
+      if(cloudState.active)$('#cloudSessionStatus').textContent='Connection interrupted';
+    }
+  },12000);
+  cloudState.pingTimer.unref?.();
+}
+function updateCloudTime(){
+  const active=cloudState.active;if(!active?.started)return;
+  const remaining=Math.max(0,(active.maxSeconds||1140)-Math.floor((Date.now()-active.startedAt)/1000));
+  const el=$('#cloudSessionTime');
+  if(el)el.textContent=\`\${Math.floor(remaining/60)}:\${String(remaining%60).padStart(2,'0')}\`;
+  if(remaining>0&&cloudState.active===active)setTimeout(updateCloudTime,1000);
+}
+function cloudSessionError(err){
+  setCloudSessionStatus('Couldn’t start the session',err?.message||'Arc Cloud returned an error.',100);
+  const stage=$('#cloudStage');
+  const loader=stage?.querySelector('.cloud-loader');
+  if(loader&&!loader.querySelector('.cloud-error-actions')){
+    const actions=document.createElement('div');actions.className='cloud-error-actions';
+    actions.innerHTML='<button class="secondary">Close</button>';
+    actions.querySelector('button').onclick=()=>closeCloudSession(true);
+    loader.append(actions);
+  }
+}
+async function closeCloudSession(sendQuit=true){
+  const active=cloudState.active;
+  cloudState.active=null;
+  clearInterval(cloudState.pingTimer);cloudState.pingTimer=null;
+  $('#cloudSession')?.remove();
+  if(sendQuit&&active?.uuid&&cloudState.token){
+    try{
+      await fetch(\`\${CLOUD_API}/cloud/v1/quitSession\`,{
+        method:'POST',headers:cloudAuthHeaders(),body:JSON.stringify({uuid:active.uuid}),keepalive:true
+      });
+    }catch{}
+  }
+}
+function setupCloud(){
+  $('#cloudSearch')?.addEventListener('input',applyCloudFilter);
+  window.addEventListener('pagehide',()=>{
+    const active=cloudState.active;
+    if(active?.uuid&&cloudState.token){
+      fetch(\`\${CLOUD_API}/cloud/v1/quitSession\`,{
+        method:'POST',headers:cloudAuthHeaders(),body:JSON.stringify({uuid:active.uuid}),keepalive:true
+      }).catch(()=>{});
+    }
+  });
+  loadCloudCatalog();
+}
+
 function setupNavigation(){
   $$('.nav-item[data-view]').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.view)));
   $$('[data-go]').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.go)));
@@ -131,4 +446,4 @@ function setTheme(name){
   $$('.theme-option').forEach(b=>b.classList.toggle('selected',b.dataset.theme===name));
   localStorage.setItem('arc-theme',name);
 }
-setupNavigation();setupSearch();setupThemes();loadGames();
+setupNavigation();setupSearch();setupThemes();setupCloud();loadGames();
