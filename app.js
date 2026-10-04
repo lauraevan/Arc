@@ -1,11 +1,12 @@
 const GAME_DATA='games-catalog.json';
+const HOME_GAMES=[{"id":1,"name":"Bendy and the Ink Machine","gameUrl":"Games/BATIM/index.html","imageUrl":"Game Artwork/batim.png","featured":true,"porter":"crackers & slqnt"},{"id":2,"name":"MiSide","gameUrl":"Games/miside/miside.html","imageUrl":"Game Artwork/miside.jpg","featured":true,"porter":"crackers"},{"id":5,"name":"Cuphead","gameUrl":"Games/cuphead/index.html","imageUrl":"Game Artwork/cuphead.png","featured":true,"porter":"crackers"},{"id":8,"name":"One Shot: World Machine Edition","gameUrl":"Games/oneshot-wme/index.html","imageUrl":"Game Artwork/oneshot.jpg","featured":true,"porter":"shayder"},{"id":10,"name":"Stardew Valley","gameUrl":"Games/stardewvalley/index.html","imageUrl":"Game Artwork/star.jpg","featured":true,"porter":"cirsius"},{"id":16,"name":"Azahar","gameUrl":"Games/Azahar/index.html","imageUrl":"Game Artwork/aza.png","featured":true,"porter":"sexyplankton"},{"id":19,"name":"Inscryption","gameUrl":"Games/inscryption/index.html","imageUrl":"Game Artwork/insc.png","featured":true,"porter":"reeyuki"},{"id":20,"name":"Lobotomy Corporation","gameUrl":"Games/lob-corp/index.html","imageUrl":"Game Artwork/lob-corp.png","featured":true,"porter":"reeyuki"},{"id":25,"name":"Trombone Champ","gameUrl":"Games/tchamp/index.html","imageUrl":"Game Artwork/tchamp/img.png","featured":true,"porter":"gurtmuncher"},{"id":26,"name":"Granny 3","gameUrl":"Games/granny/granny3.html","imageUrl":"Game Artwork/granny3.png","featured":true,"porter":"crax"},{"id":27,"name":"PEAK","gameUrl":"Games/peak/PEAK.html","imageUrl":"Game Artwork/peak.png","featured":true,"porter":"dasher"},{"id":28,"name":"Among Us","gameUrl":"Games/amongus/index.html","imageUrl":"Game Artwork/amongus.webp","featured":true,"porter":"(click for more info)"}];
 const STASH_BASE='https://raw.githack.com/lauraevan/Game-Stash/main/';
 const STASH_RAW='https://raw.githubusercontent.com/lauraevan/Game-Stash/main/';
 const CLOUD_API='https://stratus-api-ceav.onrender.com';
 const MEDIA_API=CLOUD_API;
 const MEDIA_PLAYER_ORIGIN='https://arc-media.onrender.com';
 const SCRAMJET_ORIGIN='https://scramjet-v2-prod.onrender.com';
-const state={games:[],filtered:[],visible:60,view:'home',heroItems:[],heroIndex:0,heroTimer:null};
+const state={games:[],homeGames:HOME_GAMES.slice(),filtered:[],visible:60,view:'home',heroItems:[],heroIndex:0,heroTimer:null,heroArmed:false,libraryLoaded:false,libraryLoading:null};
 const cloudState={games:[],filtered:[],tag:'All',featured:null,token:null,tokenExpires:0,loading:false,active:null,pingTimer:null};
 const webState={target:null,proxyUrl:null};
 const mediaState={loaded:false,loading:false,home:null,featured:null,query:'',hlsPromise:null};
@@ -51,7 +52,7 @@ function gameCard(game){
   const el=document.createElement('button');
   el.className='game-card';
   el.type='button';
-  el.innerHTML=`<div class="game-art"><img loading="lazy" alt="" src="${imageUrl(game)}"></div>
+  el.innerHTML=`<div class="game-art"><img loading="lazy" decoding="async" fetchpriority="low" alt="" src="${imageUrl(game)}"></div>
     <div class="game-meta"><div class="game-name"></div><div class="game-sub"></div></div>`;
   $('.game-name',el).textContent=game.name||'Untitled';
   $('.game-sub',el).textContent=game.porter?('Port by '+game.porter):(game.author||'Arc game');
@@ -62,22 +63,26 @@ function gameCard(game){
 function renderFeatured(){
   const row=$('#featuredGames'); if(!row)return;
   row.innerHTML='';
-  const items=state.games.filter(g=>g.featured).slice(0,12);
-  (items.length?items:state.games.slice(0,12)).forEach(g=>row.append(gameCard(g)));
+  const source=state.homeGames.length?state.homeGames:state.games;
+  const items=source.filter(g=>g.featured).slice(0,12);
+  (items.length?items:source.slice(0,12)).forEach(g=>row.append(gameCard(g)));
 }
 function homeHeroItems(){
-  const featured=state.games.filter(g=>g.featured&&g.imageUrl);
-  return (featured.length?featured:state.games.filter(g=>g.imageUrl)).slice(0,8);
+  const source=state.homeGames.length?state.homeGames:state.games;
+  const featured=source.filter(g=>g.featured&&g.imageUrl);
+  return (featured.length?featured:source.filter(g=>g.imageUrl)).slice(0,8);
 }
 function showHomeHero(index=0){
   if(!state.heroItems.length)return;
   state.heroIndex=((index%state.heroItems.length)+state.heroItems.length)%state.heroItems.length;
   const game=state.heroItems[state.heroIndex];
   const bg=$('#homeHeroBg'),title=$('#homeHeroTitle'),text=$('#homeHeroText'),eyebrow=$('#homeHeroEyebrow'),play=$('#homeHeroPlay');
-  if(bg){
+  if(bg&&state.heroArmed){
     bg.style.opacity='.35';
     const next=imageUrl(game);
     const preload=new Image();
+    preload.decoding='async';
+    preload.fetchPriority='low';
     preload.onload=()=>{if(state.heroItems[state.heroIndex]===game){bg.src=next;requestAnimationFrame(()=>bg.style.opacity='.88')}};
     preload.onerror=()=>{bg.style.opacity='.5'};
     preload.src=next;
@@ -89,7 +94,13 @@ function showHomeHero(index=0){
   }
   if(eyebrow)eyebrow.innerHTML='ARC <i></i> FEATURED GAME';
   if(play){play.disabled=false;play.onclick=()=>openGame(game)}
-  $('#homeHeroDots .hero-dot').forEach((dot,i)=>dot.classList.toggle('active',i===state.heroIndex));
+  $$('#homeHeroDots .hero-dot').forEach((dot,i)=>dot.classList.toggle('active',i===state.heroIndex));
+}
+function armHomeHero(){
+  if(state.heroArmed)return;
+  state.heroArmed=true;
+  showHomeHero(state.heroIndex);
+  restartHomeHeroTimer();
 }
 function startHomeHero(){
   state.heroItems=homeHeroItems();
@@ -109,7 +120,7 @@ function startHomeHero(){
 }
 function restartHomeHeroTimer(){
   clearInterval(state.heroTimer);
-  if(state.heroItems.length<2)return;
+  if(!state.heroArmed||state.heroItems.length<2)return;
   state.heroTimer=setInterval(()=>{
     if(state.view==='home'&&!document.hidden)showHomeHero(state.heroIndex+1);
   },7000);
@@ -134,17 +145,27 @@ function renderGames(){
   if(more)more.hidden=state.visible>=state.filtered.length;
 }
 async function loadGames(){
-  try{
-    const res=await fetch(GAME_DATA,{cache:'no-store'});
-    if(!res.ok)throw new Error('catalog request failed');
-    const data=await res.json();
-    state.games=Array.isArray(data)?data:[];
-    state.filtered=state.games.slice();
-    renderFeatured();renderGames();startHomeHero();
-  }catch(err){
-    const count=$('#gameCount');if(count)count.textContent='Could not load the game library.';
-    console.error(err);
-  }
+  if(state.libraryLoaded)return state.games;
+  if(state.libraryLoading)return state.libraryLoading;
+  state.libraryLoading=(async()=>{
+    try{
+      const res=await fetch(GAME_DATA,{cache:'force-cache'});
+      if(!res.ok)throw new Error('catalog request failed');
+      const data=await res.json();
+      state.games=Array.isArray(data)?data:[];
+      state.filtered=state.games.slice();
+      state.libraryLoaded=true;
+      renderGames();
+      return state.games;
+    }catch(err){
+      const count=$('#gameCount');if(count)count.textContent='Could not load the game library.';
+      console.error(err);
+      throw err;
+    }finally{
+      state.libraryLoading=null;
+    }
+  })();
+  return state.libraryLoading;
 }
 function switchView(name){
   state.view=name;
@@ -155,7 +176,11 @@ function switchView(name){
   });
   document.body.classList.remove('sidebar-open');
   window.scrollTo({top:0,behavior:document.body.classList.contains('reduce-motion')?'auto':'smooth'});
-  if(name==='games')setTimeout(()=>$('#gameSearch')?.focus({preventScroll:true}),40);
+  if(name==='games'){
+    loadGames().catch(()=>{});
+    setTimeout(()=>$('#gameSearch')?.focus({preventScroll:true}),40);
+  }
+  if(name==='cloud')loadCloudCatalog();
   if(name==='watch')loadMediaHome();
 }
 function openGame(game){
@@ -481,7 +506,6 @@ function setupCloud(){
       }).catch(()=>{});
     }
   });
-  loadCloudCatalog();
 }
 
 
@@ -983,4 +1007,6 @@ function setTheme(name){
   localStorage.setItem('arc-theme',valid);
   applyWallpaperTheme(valid);
 }
-setupNavigation();setupSearch();setupThemes();setupWeb();setupCloud();setupMedia();loadGames();
+setupNavigation();setupSearch();setupThemes();setupWeb();setupCloud();setupMedia();renderFeatured();startHomeHero();
+window.addEventListener('pointerdown',armHomeHero,{once:true,passive:true});
+window.addEventListener('keydown',armHomeHero,{once:true});
