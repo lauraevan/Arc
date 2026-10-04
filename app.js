@@ -11,7 +11,7 @@ const state={games:[],homeGames:HOME_GAMES.slice(),filtered:[],visible:60,view:'
 const cloudState={games:[],filtered:[],tag:'All',featured:null,token:null,tokenExpires:0,loading:false,active:null,pingTimer:null};
 const webState={target:null,proxyUrl:null};
 const mediaState={loaded:false,loading:false,home:null,featured:null,query:'',hlsPromise:null};
-const musicState={query:'',results:[],queue:[],index:-1,current:null,searchController:null,initialized:false,tab:'home',player:null,playerReady:null,ytPlayerReady:null,playerUsable:false,playing:false,shuffle:false,repeat:false,timer:null,mode:'idle',playToken:0,audioCtx:null,audioSource:null,filters:[],splitter:null,merger:null,crossL:null,crossR:null,delayL:null,delayR:null,compressor:null,analyser:null,master:null,eq:[0,0,0,0,0,0],spatial:0,normalize:false,motion:true,lyricsCache:new Map(),homeTracks:[],homeLoaded:false,vizRaf:0};
+const musicState={query:'',results:[],queue:[],index:-1,current:null,searchController:null,initialized:false,tab:'home',player:null,playerReady:null,ytPlayerReady:null,playerUsable:false,playing:false,shuffle:false,repeat:false,timer:null,mode:'idle',playToken:0,directAvailable:false,capabilitiesLoaded:false,audioCtx:null,audioSource:null,filters:[],splitter:null,merger:null,crossL:null,crossR:null,delayL:null,delayR:null,compressor:null,analyser:null,master:null,eq:[0,0,0,0,0,0],spatial:0,normalize:false,motion:true,lyricsCache:new Map(),homeTracks:[],homeLoaded:false,vizRaf:0};
 const WALLPAPER_THEMES={
   fireflies:{
     url:'https://www.desktophut.com/files/1654706911-1654706911-pc-fireflies-forest-live-wallpaper.mp4',
@@ -931,8 +931,31 @@ function updateMusicEngineUI(){
   const text=musicEngineLabel();
   if($('#musicEnginePill'))$('#musicEnginePill').textContent=text;
   if($('#musicSoundEngine'))$('#musicSoundEngine').textContent=text;
-  const enhanced=musicState.mode==='direct'||musicState.mode==='direct-loading';
+  const enhanced=musicState.mode==='direct';
   $('#musicSoundPanel')?.classList.toggle('music-enhanced-ready',enhanced);
+  $$('#musicEqPresets button,#musicEq input,#musicSpatial,#musicNormalize').forEach(control=>{
+    control.disabled=!enhanced;
+  });
+  const note=$('#musicSoundNote');
+  if(note){
+    if(enhanced)note.textContent='Enhanced audio is active. EQ, Spatial Width and Sound Check are processing this track in real time.';
+    else if(musicState.directAvailable)note.textContent='Enhanced audio is available and will activate when a compatible direct stream starts.';
+    else note.textContent='This host is using the fast YouTube Music fallback player. Lyrics and Motion Artwork still work, but EQ and Spatial Width require the direct audio engine.';
+  }
+}
+async function loadMusicCapabilities(){
+  if(musicState.capabilitiesLoaded)return musicState.directAvailable;
+  musicState.capabilitiesLoaded=true;
+  try{
+    const res=await fetch(MUSIC_API+'/music/v1/health',{cache:'no-store'});
+    if(!res.ok)throw new Error('health failed');
+    const data=await res.json();
+    musicState.directAvailable=!!data.directAudioAvailable;
+  }catch(_){
+    musicState.directAvailable=false;
+  }
+  updateMusicEngineUI();
+  return musicState.directAvailable;
 }
 function loadYoutubeApi(){
   if(window.YT&&window.YT.Player)return Promise.resolve();
@@ -1430,12 +1453,21 @@ async function playMusicTrack(index){
   musicState.index=index;
   musicState.current=track;
   musicState.playing=false;
-  musicState.mode='direct-loading';
   updateMusicPlayer();
   renderMusicResults();
-  musicSetStatus('Preparing enhanced audio…');
   if(!$('#musicLyricsPanel')?.hidden)loadMusicLyrics(track);
-  tryDirectMusic(track,token);
+
+  if(musicState.directAvailable){
+    musicState.mode='direct-loading';
+    musicSetStatus('Preparing enhanced audio…');
+    updateMusicEngineUI();
+    tryDirectMusic(track,token);
+  }else{
+    musicState.mode='youtube';
+    musicSetStatus('Loading…');
+    updateMusicEngineUI();
+    useYoutubeFallback(track,token);
+  }
 }
 function stepMusic(delta){
   if(!musicState.queue.length)return;
@@ -1476,6 +1508,7 @@ function setupMusic(){
   const form=$('#musicSearchForm'),input=$('#musicSearchInput'),volume=$('#musicVolume'),audio=$('#musicAudio');
   restoreMusicSoundSettings();
   ensureMusicPlayer().catch(()=>{});
+  loadMusicCapabilities();
   loadMusicHomeShelf();
 
   form?.addEventListener('submit',e=>{e.preventDefault();searchMusic(input?.value||'')});
