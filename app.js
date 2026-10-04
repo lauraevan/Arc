@@ -1126,7 +1126,14 @@ async function openMangaDetails(id,seed={}){
     const item=await res.json().catch(()=>({}));
     if(!res.ok)throw new Error(item.error||'Could not load manga');
     mangaState.current=item;
-    mangaState.chapters=Array.isArray(item.chapters)?item.chapters.slice():[];
+    const allChapters=Array.isArray(item.chapters)?item.chapters.slice():[];
+    const readableChapters=allChapters.filter(ch=>{
+      if(ch?.readable===false)return false;
+      if(ch?.externalUrl)return false;
+      const pages=Number(ch?.pages);
+      return !Number.isFinite(pages)||pages>0;
+    });
+    mangaState.chapters=readableChapters.length?readableChapters:allChapters;
     const numeric=mangaState.chapters.filter(ch=>Number.isFinite(chapterNumber(ch)));
     if(numeric.length>=Math.max(2,Math.floor(mangaState.chapters.length*.6))){
       mangaState.chapters.sort((a,b)=>{
