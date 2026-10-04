@@ -3367,3 +3367,68 @@ body.music-playing .main{
 @media(prefers-reduced-motion:reduce){
   .media-card,.media-card-art>img,.manga-card-art img{transition:none!important}
 }
+
+
+/* Cinema scale pass: fewer, larger titles per shelf */
+.media-row{
+  grid-auto-columns:minmax(188px,220px);
+  gap:14px;
+}
+.media-row-landscape{
+  grid-auto-columns:minmax(310px,370px);
+}
+.media-card-copy{
+  padding-top:8px;
+}
+.media-card-copy b{
+  font-size:11px;
+}
+.media-card-copy span{
+  margin-top:4px;
+  font-size:8px;
+}
+.media-rating-badge{
+  left:8px;
+  top:8px;
+  padding:4px 7px;
+  font-size:8px;
+}
+.media-card-play{
+  width:40px;
+  height:40px;
+}
+.media-card-play svg{
+  width:17px;
+  height:17px;
+}
+.media-grid{
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:20px 14px;
+}
+.media-detail-recs{
+  grid-auto-columns:minmax(280px,340px);
+}
+
+/* Homepage featured shelf motion */
+#featuredGames{
+  scroll-behavior:smooth;
+  scroll-snap-type:x mandatory;
+  overscroll-behavior-inline:contain;
+}
+#featuredGames .game-card{
+  scroll-snap-align:start;
+}
+
+@media(max-width:1200px){
+  .media-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media(max-width:900px){
+  .media-row{grid-auto-columns:minmax(170px,205px)}
+  .media-row-landscape{grid-auto-columns:minmax(285px,340px)}
+  .media-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:620px){
+  .media-row{grid-auto-columns:minmax(156px,46vw)}
+  .media-row-landscape{grid-auto-columns:minmax(260px,78vw)}
+  .media-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
