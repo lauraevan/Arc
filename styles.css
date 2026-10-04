@@ -602,3 +602,10 @@ body{background:#080808}
   .media-details-copy h2{font-size:44px}
 }
 @media(max-width:470px){.media-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.media-row{grid-auto-columns:145px}.media-episode-controls{flex-direction:column}.media-episode-controls select{width:100%}}
+
+.hero-bg{transition:opacity 220ms ease}
+.hero-dots{display:flex;align-items:center;gap:6px;margin-top:18px}
+.hero-dot{width:18px;height:3px;border:0;border-radius:99px;background:rgba(255,255,255,.24);padding:0;cursor:pointer}
+.hero-dot.active{background:#f07a22}
+.hero #homeHeroPlay:disabled{opacity:.45;cursor:default}
+@media(max-width:700px){.hero-dots{margin-top:15px}.hero-dot{width:16px}}
