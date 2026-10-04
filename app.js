@@ -6,11 +6,13 @@ const CLOUD_API='https://stratus-api-ceav.onrender.com';
 const MEDIA_API=CLOUD_API;
 const MEDIA_PLAYER_ORIGIN='https://arc-media.onrender.com';
 const MUSIC_API=CLOUD_API;
+const MANGA_API=CLOUD_API;
 const SCRAMJET_ORIGIN='https://scramjet-v2-prod.onrender.com';
 const state={games:[],homeGames:HOME_GAMES.slice(),filtered:[],visible:60,view:'home',heroItems:[],heroIndex:0,heroTimer:null,heroArmed:false,libraryLoaded:false,libraryLoading:null};
 const cloudState={games:[],filtered:[],tag:'All',featured:null,token:null,tokenExpires:0,loading:false,active:null,pingTimer:null};
 const webState={target:null,proxyUrl:null};
-const mediaState={loaded:false,loading:false,home:null,featured:null,query:'',hlsPromise:null};
+const mediaState={loaded:false,loading:false,home:null,featured:null,query:'',hlsPromise:null,heroVideoToken:0};
+const mangaState={loaded:false,loading:false,initialized:false,home:null,query:'',featured:null,current:null,chapters:[],reader:null};
 const musicState={query:'',results:[],queue:[],index:-1,current:null,searchController:null,initialized:false,tab:'home',player:null,playerReady:null,ytPlayerReady:null,playerUsable:false,playing:false,shuffle:false,repeat:false,timer:null,mode:'idle',playToken:0,directAvailable:false,capabilitiesLoaded:false,audioCtx:null,audioSource:null,filters:[],splitter:null,merger:null,crossL:null,crossR:null,delayL:null,delayR:null,compressor:null,analyser:null,master:null,eq:[0,0,0,0,0,0],spatial:0,normalize:false,motion:true,lyricsCache:new Map(),lyricsData:null,activeLyric:-1,homeTracks:[],homeMade:[],homeLoaded:false,vizRaf:0};
 const WALLPAPER_THEMES={
   fireflies:{
@@ -186,6 +188,7 @@ function switchView(name){
   if(name==='cloud')loadCloudCatalog();
   if(name==='watch')loadMediaHome();
   if(name==='music')setupMusic();
+  if(name==='manga')setupManga();
 }
 function openGame(game){
   const player=document.createElement('div');player.className='player';
@@ -539,48 +542,61 @@ function mediaGenreNames(item){
 }
 function mediaTrailer(item){
   const videos=Array.isArray(item?.videos?.results)?item.videos.results:[];
-  const youtube=videos.filter(v=>v?.site==='YouTube'&&v?.key);
-  return youtube.find(v=>v.official&&v.type==='Trailer')
-    ||youtube.find(v=>v.type==='Trailer')
-    ||youtube.find(v=>v.official&&v.type==='Teaser')
-    ||youtube.find(v=>v.type==='Teaser')
-    ||youtube[0]
-    ||null;
+  const supported=videos.filter(video=>{
+    const site=String(video?.site||'').toLowerCase();
+    return video?.key&&(site==='vimeo'||site==='dailymotion');
+  });
+  const score=video=>{
+    let value=0;
+    if(video.official)value+=10;
+    if(video.type==='Trailer')value+=8;
+    else if(video.type==='Teaser')value+=5;
+    if(video.iso_639_1==='en')value+=2;
+    return value;
+  };
+  return supported.slice().sort((a,b)=>score(b)-score(a))[0]||null;
 }
-function mediaLogo(item){
-  const logos=Array.isArray(item?.images?.logos)?item.images.logos:[];
-  const logo=logos.find(x=>x.iso_639_1==='en')||logos[0];
-  return logo?.file_path?`https://image.tmdb.org/t/p/w500${logo.file_path}`:'';
+function mediaAutoplayUrl(video){
+  if(!video?.key)return '';
+  const site=String(video.site||'').toLowerCase();
+  if(site==='vimeo'){
+    return `https://player.vimeo.com/video/${encodeURIComponent(video.key)}?background=1&autoplay=1&muted=1&loop=1&title=0&byline=0&portrait=0&controls=0`;
+  }
+  if(site==='dailymotion'){
+    return `https://www.dailymotion.com/embed/video/${encodeURIComponent(video.key)}?autoplay=1&mute=1&loop=1&controls=0&queue-enable=false&sharing-enable=false`;
+  }
+  return '';
 }
-function mediaBackdropGallery(item){
-  return (Array.isArray(item?.images?.backdrops)?item.images.backdrops:[])
-    .filter(x=>x?.file_path)
-    .slice(0,8)
-    .map(x=>`https://image.tmdb.org/t/p/w780${x.file_path}`);
+function mountMediaAutoplay(host,video){
+  if(!host)return false;
+  host.innerHTML='';
+  const src=mediaAutoplayUrl(video);
+  if(!src){
+    host.hidden=true;
+    return false;
+  }
+  const frame=document.createElement('iframe');
+  frame.src=src;
+  frame.allow='autoplay; fullscreen; picture-in-picture';
+  frame.referrerPolicy='strict-origin-when-cross-origin';
+  frame.tabIndex=-1;
+  frame.setAttribute('aria-hidden','true');
+  host.append(frame);
+  host.hidden=false;
+  return true;
 }
-function openMediaTrailer(video,title='Trailer'){
-  if(!video?.key)return;
-  $('#mediaTrailer')?.remove();
-  const shell=document.createElement('div');
-  shell.className='media-trailer-modal';
-  shell.id='mediaTrailer';
-  shell.innerHTML=`
-    <div class="media-trailer-shell">
-      <div class="media-trailer-head">
-        <div><span>OFFICIAL TRAILER</span><b></b></div>
-        <button type="button" aria-label="Close trailer">×</button>
-      </div>
-      <div class="media-trailer-frame-wrap">
-        <iframe allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
-      </div>
-    </div>`;
-  $('.media-trailer-head b',shell).textContent=title;
-  const close=()=>shell.remove();
-  $('.media-trailer-head button',shell).onclick=close;
-  shell.addEventListener('click',e=>{if(e.target===shell)close()});
-  const frame=$('iframe',shell);
-  frame.src=`https://www.youtube-nocookie.com/embed/${encodeURIComponent(video.key)}?autoplay=1&rel=0&modestbranding=1`;
-  document.body.append(shell);
+async function hydrateMediaHeroVideo(item){
+  const token=++mediaState.heroVideoToken;
+  const host=$('#mediaHeroVideo');
+  if(host){host.innerHTML='';host.hidden=true}
+  if(!item?.id)return;
+  try{
+    const type=mediaType(item);
+    const res=await fetch(`${MEDIA_API}/media/v1/details/${type}/${item.id}`,{cache:'force-cache'});
+    const details=await res.json().catch(()=>({}));
+    if(token!==mediaState.heroVideoToken)return;
+    mountMediaAutoplay(host,mediaTrailer(details));
+  }catch{}
 }
 function mediaCard(item,forcedType='',layout='poster'){
   const type=mediaType(item,forcedType);
@@ -639,7 +655,7 @@ function renderMediaHero(item){
   if(label)label.textContent=mediaType(item)==='tv'?'FEATURED SERIES':'FEATURED FILM';
   if(meta)meta.textContent=[mediaYear(item),mediaRating(item)?'★ '+mediaRating(item):'',mediaType(item)==='tv'?'Series':'Movie'].filter(Boolean).join('   ');
   if(button){button.disabled=false;button.onclick=()=>openMediaDetails(mediaType(item),item.id)}
-  hydrateMediaHeroTrailer(item);
+  hydrateMediaHeroVideo(item);
 }
 async function loadMediaHome(force=false){
   if((mediaState.loaded&&!force)||mediaState.loading)return;
@@ -748,6 +764,7 @@ async function openMediaDetails(type,id){
     modal.innerHTML=`
       <button class="media-details-close" aria-label="Close">×</button>
       <div class="media-details-art" style="background-image:url('${String(backdrop).replace(/'/g,'%27')}')"></div>
+      <div class="media-details-video" id="mediaDetailsVideo" aria-hidden="true"></div>
       <div class="media-details-scrim"></div>
       <main class="media-details-body">
         <section class="media-details-copy">
@@ -766,10 +783,7 @@ async function openMediaDetails(type,id){
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6z"/></svg>
               Play
             </button>
-            <button class="secondary media-trailer-button" id="mediaTrailerNow" type="button" ${trailer?'':'disabled'}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6z"/></svg>
-              Trailer
-            </button>
+
           </div>
         </section>
         <div class="media-details-extra" id="mediaDetailsExtra"></div>
@@ -787,7 +801,7 @@ async function openMediaDetails(type,id){
     if(castHost&&cast.length)castHost.textContent='Starring '+cast.join(', ');
     const close=()=>modal.remove();
     $('.media-details-close',modal).onclick=close;
-    if(trailer)$('#mediaTrailerNow',modal).onclick=()=>openMediaTrailer(trailer,mediaTitle(item));
+    mountMediaAutoplay($('#mediaDetailsVideo',modal),trailer);
 
     if(type==='tv'){
       const seasonSelect=$('#mediaSeasonSelect',modal);
@@ -947,6 +961,388 @@ async function playMedia(opts){
 function setupMedia(){
   $('#mediaSearchForm')?.addEventListener('submit',e=>{e.preventDefault();searchMedia($('#mediaSearchInput')?.value||'')});
   $('#mediaClearSearch')?.addEventListener('click',clearMediaSearch);
+}
+
+function mangaImage(value){
+  const raw=String(value||'').trim();
+  if(!raw)return '';
+  return /^https?:\/\//i.test(raw)?raw:MANGA_API+(raw.startsWith('/')?raw:'/'+raw);
+}
+function mangaTitle(item){
+  const value=item?.title;
+  if(typeof value==='string')return value;
+  if(Array.isArray(value))return value.find(Boolean)||'Untitled';
+  if(value&&typeof value==='object')return value.english||value.romaji||value.native||Object.values(value).find(Boolean)||'Untitled';
+  return 'Untitled';
+}
+function mangaAltTitle(item){
+  const list=Array.isArray(item?.altTitles)?item.altTitles:[];
+  return list.find(Boolean)||'';
+}
+function mangaLibrary(){
+  try{
+    const value=JSON.parse(localStorage.getItem('arc-manga-library')||'[]');
+    return Array.isArray(value)?value.filter(x=>x?.id):[];
+  }catch(_){return[]}
+}
+function setMangaLibrary(items){
+  localStorage.setItem('arc-manga-library',JSON.stringify(items.slice(0,80)));
+  renderMangaSaved();
+}
+function mangaProgress(){
+  try{
+    const value=JSON.parse(localStorage.getItem('arc-manga-progress')||'[]');
+    return Array.isArray(value)?value.filter(x=>x?.mangaId):[];
+  }catch(_){return[]}
+}
+function setMangaProgress(entry){
+  const next=[entry,...mangaProgress().filter(x=>x.mangaId!==entry.mangaId)].slice(0,30);
+  localStorage.setItem('arc-manga-progress',JSON.stringify(next));
+  renderMangaContinue();
+}
+function mangaCard(item,context=[]){
+  const card=document.createElement('button');
+  card.type='button';
+  card.className='manga-card';
+  card.setAttribute('aria-label','Open '+mangaTitle(item));
+  const art=document.createElement('span');
+  art.className='manga-card-art';
+  const img=document.createElement('img');
+  img.loading='lazy';img.decoding='async';img.alt='';img.src=mangaImage(item.image||item.cover);
+  const badge=document.createElement('span');
+  badge.className='manga-card-badge';
+  badge.textContent='READ';
+  art.append(img,badge);
+  const title=document.createElement('b');title.textContent=mangaTitle(item);
+  const meta=document.createElement('span');meta.textContent=mangaAltTitle(item)||'Manga';
+  card.append(art,title,meta);
+  card.onclick=()=>openMangaDetails(item.id,item);
+  return card;
+}
+function renderMangaRow(id,items){
+  const host=$(id);if(!host)return;
+  host.innerHTML='';
+  (items||[]).slice(0,20).forEach(item=>host.append(mangaCard(item,items)));
+  if(!host.children.length)host.innerHTML='<div class="manga-empty">Nothing here yet.</div>';
+}
+function renderMangaHero(item){
+  mangaState.featured=item||null;
+  const title=$('#mangaHeroTitle'),cover=$('#mangaHeroCover'),bg=$('#mangaHeroBackdrop'),open=$('#mangaHeroOpen');
+  if(!item){
+    if(title)title.textContent='Manga library unavailable';
+    if(open)open.disabled=true;
+    return;
+  }
+  const image=mangaImage(item.image||item.cover);
+  if(title)title.textContent=mangaTitle(item);
+  if(cover){cover.src=image;cover.hidden=!image}
+  if(bg)bg.style.backgroundImage=image?`url("${image.replace(/"/g,'%22')}")`:'none';
+  if($('#mangaHeroText'))$('#mangaHeroText').textContent=mangaAltTitle(item)||'Popular right now in Arc Manga.';
+  if(open){open.disabled=false;open.onclick=()=>openMangaDetails(item.id,item)}
+}
+function renderMangaContinue(){
+  const items=mangaProgress();
+  const section=$('#mangaContinueSection'),host=$('#mangaContinueRow');
+  if(section)section.hidden=!items.length;
+  if(!host)return;
+  host.innerHTML='';
+  items.forEach((entry,index)=>{
+    const card=document.createElement('button');
+    card.type='button';card.className='manga-continue-card';
+    const img=document.createElement('img');img.alt='';img.loading='lazy';img.src=mangaImage(entry.image);
+    const copy=document.createElement('span');
+    const title=document.createElement('b');title.textContent=entry.title||'Manga';
+    const meta=document.createElement('small');meta.textContent=(entry.chapterTitle||'Chapter')+' · '+Math.max(1,Number(entry.page||0)+1)+'/'+Math.max(1,Number(entry.totalPages||1));
+    const bar=document.createElement('i');
+    const pct=Math.max(0,Math.min(100,((Number(entry.page||0)+1)/Math.max(1,Number(entry.totalPages||1)))*100));
+    bar.style.setProperty('--manga-progress',pct+'%');
+    copy.append(title,meta,bar);card.append(img,copy);
+    card.onclick=()=>resumeManga(entry);
+    host.append(card);
+  });
+}
+function renderMangaSaved(){
+  const items=mangaLibrary();
+  const section=$('#mangaSavedSection');
+  if(section)section.hidden=!items.length;
+  renderMangaRow('#mangaSavedRow',items);
+}
+async function loadMangaHome(force=false){
+  if((mangaState.loaded&&!force)||mangaState.loading)return;
+  mangaState.loading=true;
+  try{
+    const res=await fetch(MANGA_API+'/manga/v1/home',{cache:'force-cache'});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(data.error||'Manga library unavailable');
+    mangaState.home=data;mangaState.loaded=true;
+    const popular=Array.isArray(data.popular)?data.popular:[];
+    const recent=Array.isArray(data.recent)?data.recent:[];
+    renderMangaHero(popular[0]||recent[0]);
+    renderMangaRow('#mangaPopularRow',popular);
+    renderMangaRow('#mangaRecentRow',recent);
+    renderMangaContinue();
+    renderMangaSaved();
+  }catch(err){
+    if($('#mangaHeroTitle'))$('#mangaHeroTitle').textContent='Could not load manga';
+    ['#mangaPopularRow','#mangaRecentRow'].forEach(id=>{const el=$(id);if(el)el.innerHTML='<div class="manga-empty">Manga catalog unavailable.</div>'});
+  }finally{mangaState.loading=false}
+}
+async function searchManga(query){
+  const q=String(query||'').trim();
+  if(!q){clearMangaSearch();return}
+  mangaState.query=q;
+  const home=$('#mangaHome'),results=$('#mangaSearchResults'),grid=$('#mangaSearchGrid');
+  if(home)home.hidden=true;
+  if(results)results.hidden=false;
+  if($('#mangaSearchTitle'))$('#mangaSearchTitle').textContent='Results for “'+q+'”';
+  if(grid)grid.innerHTML='<div class="manga-empty">Searching…</div>';
+  try{
+    const res=await fetch(MANGA_API+'/manga/v1/search?q='+encodeURIComponent(q),{cache:'no-store'});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(data.error||'Search failed');
+    grid.innerHTML='';
+    const items=Array.isArray(data.results)?data.results:[];
+    items.forEach(item=>grid.append(mangaCard(item,items)));
+    if(!grid.children.length)grid.innerHTML='<div class="manga-empty">No manga found.</div>';
+  }catch(err){
+    if(grid)grid.innerHTML='<div class="manga-empty">'+escapeHtml(err.message||'Search failed.')+'</div>';
+  }
+}
+function clearMangaSearch(){
+  mangaState.query='';
+  if($('#mangaSearchInput'))$('#mangaSearchInput').value='';
+  if($('#mangaSearchResults'))$('#mangaSearchResults').hidden=true;
+  if($('#mangaHome'))$('#mangaHome').hidden=false;
+}
+function toggleMangaSaved(item){
+  const current=mangaLibrary();
+  const exists=current.some(x=>x.id===item.id);
+  if(exists)setMangaLibrary(current.filter(x=>x.id!==item.id));
+  else setMangaLibrary([{id:item.id,title:mangaTitle(item),image:item.image||'',altTitles:item.altTitles||[]},...current]);
+  return !exists;
+}
+function chapterLabel(chapter,index){
+  return chapter?.title||chapter?.chapter||('Chapter '+(index+1));
+}
+async function openMangaDetails(id,seed={}){
+  $('#mangaDetails')?.remove();
+  const shell=document.createElement('div');
+  shell.className='manga-details';shell.id='mangaDetails';
+  shell.innerHTML='<div class="manga-details-loading">Opening manga…</div>';
+  document.body.append(shell);
+  try{
+    const res=await fetch(MANGA_API+'/manga/v1/info/'+encodeURIComponent(id),{cache:'force-cache'});
+    const item=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(item.error||'Could not load manga');
+    mangaState.current=item;
+    mangaState.chapters=Array.isArray(item.chapters)?item.chapters:[];
+    const image=mangaImage(item.image||seed.image);
+    const genres=Array.isArray(item.genres)?item.genres.filter(Boolean):[];
+    const saved=mangaLibrary().some(x=>x.id===item.id);
+    shell.innerHTML=`
+      <button class="manga-details-close" type="button" aria-label="Close">×</button>
+      <div class="manga-details-bg" style="background-image:url('${String(image).replace(/'/g,'%27')}')"></div>
+      <div class="manga-details-scrim"></div>
+      <div class="manga-details-layout">
+        <img class="manga-details-cover" alt="" src="${image}">
+        <div class="manga-details-copy">
+          <span class="kicker">MANGA</span>
+          <h2></h2>
+          <p class="manga-details-alt"></p>
+          <div class="manga-genre-row"></div>
+          <div class="manga-details-actions">
+            <button class="primary" id="mangaReadFirst" type="button">Start reading</button>
+            <button class="secondary" id="mangaSave" type="button">${saved?'Saved':'Save'}</button>
+          </div>
+        </div>
+      </div>
+      <section class="manga-chapters">
+        <div class="manga-section-head"><div><span>CHAPTERS</span><h2>All chapters</h2></div><span id="mangaChapterCount"></span></div>
+        <div class="manga-chapter-list" id="mangaChapterList"></div>
+      </section>`;
+    $('.manga-details-copy h2',shell).textContent=mangaTitle(item);
+    $('.manga-details-alt',shell).textContent=mangaAltTitle(item);
+    const genreHost=$('.manga-genre-row',shell);
+    genres.slice(0,8).forEach(genre=>{const span=document.createElement('span');span.textContent=genre;genreHost.append(span)});
+    $('#mangaChapterCount',shell).textContent=mangaState.chapters.length+' chapters';
+    const list=$('#mangaChapterList',shell);
+    mangaState.chapters.forEach((chapter,index)=>{
+      const row=document.createElement('button');
+      row.type='button';row.className='manga-chapter-row';
+      const title=document.createElement('b');title.textContent=chapterLabel(chapter,index);
+      const date=document.createElement('span');date.textContent=chapter.releaseDate||'';
+      row.append(title,date);row.onclick=()=>openMangaChapter(item,mangaState.chapters,index,0);
+      list.append(row);
+    });
+    if(!list.children.length)list.innerHTML='<div class="manga-empty">No chapters available.</div>';
+    $('.manga-details-close',shell).onclick=()=>shell.remove();
+    $('#mangaSave',shell).onclick=e=>{
+      const on=toggleMangaSaved(item);
+      e.currentTarget.textContent=on?'Saved':'Save';
+    };
+    $('#mangaReadFirst',shell).onclick=()=>{
+      if(mangaState.chapters.length)openMangaChapter(item,mangaState.chapters,mangaState.chapters.length-1,0);
+    };
+  }catch(err){
+    shell.innerHTML='<button class="manga-details-close" type="button" aria-label="Close">×</button><div class="manga-details-loading">'+escapeHtml(err.message||'Could not load manga.')+'</div>';
+    $('.manga-details-close',shell).onclick=()=>shell.remove();
+  }
+}
+function saveReaderProgress(){
+  const reader=mangaState.reader;
+  if(!reader?.manga||!reader.chapter)return;
+  setMangaProgress({
+    mangaId:reader.manga.id,
+    title:mangaTitle(reader.manga),
+    image:reader.manga.image||'',
+    chapterId:reader.chapter.id,
+    chapterTitle:chapterLabel(reader.chapter,reader.chapterIndex),
+    chapterIndex:reader.chapterIndex,
+    page:reader.page,
+    totalPages:reader.pages.length,
+    mode:reader.mode,
+    updatedAt:Date.now()
+  });
+}
+async function resumeManga(entry){
+  try{
+    const res=await fetch(MANGA_API+'/manga/v1/info/'+encodeURIComponent(entry.mangaId),{cache:'force-cache'});
+    const item=await res.json();
+    const chapters=Array.isArray(item.chapters)?item.chapters:[];
+    let index=chapters.findIndex(x=>x.id===entry.chapterId);
+    if(index<0)index=Math.max(0,Math.min(chapters.length-1,Number(entry.chapterIndex)||0));
+    openMangaChapter(item,chapters,index,Number(entry.page)||0);
+  }catch{}
+}
+function updateMangaReader(){
+  const reader=mangaState.reader;
+  const shell=$('#mangaReader');
+  if(!reader||!shell)return;
+  $('#mangaReaderPage',shell).textContent=(reader.page+1)+' / '+Math.max(1,reader.pages.length);
+  $('#mangaReaderMode',shell).textContent=reader.mode==='scroll'?'Scroll':'Pages';
+  shell.dataset.mode=reader.mode;
+  shell.style.setProperty('--manga-zoom',String(reader.zoom));
+  const pages=$('#mangaReaderPages',shell);
+  if(reader.mode==='page'){
+    pages.innerHTML='';
+    const item=reader.pages[reader.page];
+    if(item){
+      const img=document.createElement('img');img.alt='Page '+(reader.page+1);img.src=mangaImage(item.img);img.className='manga-reader-page-image';pages.append(img);
+    }
+  }
+  $('#mangaPrevPage',shell).disabled=reader.page<=0;
+  $('#mangaNextPage',shell).disabled=reader.page>=reader.pages.length-1;
+  $('#mangaPrevChapter',shell).disabled=reader.chapterIndex<=0;
+  $('#mangaNextChapter',shell).disabled=reader.chapterIndex>=reader.chapters.length-1;
+  saveReaderProgress();
+}
+function gotoMangaPage(delta){
+  const reader=mangaState.reader;if(!reader)return;
+  reader.page=Math.max(0,Math.min(reader.pages.length-1,reader.page+delta));
+  updateMangaReader();
+}
+async function gotoMangaChapter(delta){
+  const reader=mangaState.reader;if(!reader)return;
+  const next=reader.chapterIndex+delta;
+  if(next<0||next>=reader.chapters.length)return;
+  await openMangaChapter(reader.manga,reader.chapters,next,0);
+}
+async function openMangaChapter(manga,chapters,chapterIndex,startPage=0){
+  $('#mangaReader')?.remove();
+  const chapter=chapters[chapterIndex];
+  if(!chapter)return;
+  const shell=document.createElement('div');
+  shell.className='manga-reader';shell.id='mangaReader';
+  shell.innerHTML=`
+    <header class="manga-reader-toolbar">
+      <button type="button" id="mangaReaderClose" aria-label="Close reader">×</button>
+      <div class="manga-reader-title"><b></b><span></span></div>
+      <div class="manga-reader-tools">
+        <button type="button" id="mangaPrevChapter" title="Previous chapter">‹ Ch.</button>
+        <button type="button" id="mangaPrevPage" title="Previous page">‹</button>
+        <span id="mangaReaderPage">1 / 1</span>
+        <button type="button" id="mangaNextPage" title="Next page">›</button>
+        <button type="button" id="mangaNextChapter" title="Next chapter">Ch. ›</button>
+        <button type="button" id="mangaReaderMode">Scroll</button>
+        <button type="button" id="mangaZoomOut" aria-label="Zoom out">−</button>
+        <button type="button" id="mangaZoomIn" aria-label="Zoom in">+</button>
+      </div>
+    </header>
+    <main class="manga-reader-pages" id="mangaReaderPages"><div class="manga-reader-loading">Loading chapter…</div></main>`;
+  $('.manga-reader-title b',shell).textContent=mangaTitle(manga);
+  $('.manga-reader-title span',shell).textContent=chapterLabel(chapter,chapterIndex);
+  document.body.append(shell);
+  try{
+    const res=await fetch(MANGA_API+'/manga/v1/read?chapterId='+encodeURIComponent(chapter.id),{cache:'force-cache'});
+    const pages=await res.json().catch(()=>[]);
+    if(!res.ok||!Array.isArray(pages))throw new Error('Could not load chapter');
+    const mode=localStorage.getItem('arc-manga-reader-mode')||'scroll';
+    const zoom=Math.max(.65,Math.min(1.5,Number(localStorage.getItem('arc-manga-reader-zoom')||1)));
+    mangaState.reader={manga,chapters,chapterIndex,chapter,pages,page:Math.max(0,Math.min(pages.length-1,startPage)),mode,zoom};
+    const host=$('#mangaReaderPages',shell);
+    host.innerHTML='';
+    if(mode==='scroll'){
+      pages.forEach((page,index)=>{
+        const img=document.createElement('img');
+        img.alt='Page '+(index+1);img.loading=index<3?'eager':'lazy';img.decoding='async';img.src=mangaImage(page.img);img.className='manga-reader-page-image';img.dataset.page=String(index);host.append(img);
+      });
+      const observer=new IntersectionObserver(entries=>{
+        const visible=entries.filter(x=>x.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0];
+        if(visible&&mangaState.reader?.mode==='scroll'){
+          mangaState.reader.page=Number(visible.target.dataset.page)||0;
+          $('#mangaReaderPage',shell).textContent=(mangaState.reader.page+1)+' / '+Math.max(1,pages.length);
+          saveReaderProgress();
+        }
+      },{threshold:[.25,.5,.75]});
+      $$('.manga-reader-page-image',host).forEach(img=>observer.observe(img));
+      setTimeout(()=>$$('.manga-reader-page-image',host)[mangaState.reader.page]?.scrollIntoView({block:'start'}),50);
+    }
+    updateMangaReader();
+    $('#mangaReaderClose',shell).onclick=()=>{saveReaderProgress();shell.remove();mangaState.reader=null};
+    $('#mangaPrevPage',shell).onclick=()=>gotoMangaPage(-1);
+    $('#mangaNextPage',shell).onclick=()=>gotoMangaPage(1);
+    $('#mangaPrevChapter',shell).onclick=()=>gotoMangaChapter(-1);
+    $('#mangaNextChapter',shell).onclick=()=>gotoMangaChapter(1);
+    $('#mangaReaderMode',shell).onclick=()=>{
+      const reader=mangaState.reader;if(!reader)return;
+      reader.mode=reader.mode==='scroll'?'page':'scroll';
+      localStorage.setItem('arc-manga-reader-mode',reader.mode);
+      openMangaChapter(reader.manga,reader.chapters,reader.chapterIndex,reader.page);
+    };
+    $('#mangaZoomOut',shell).onclick=()=>{if(mangaState.reader){mangaState.reader.zoom=Math.max(.65,mangaState.reader.zoom-.1);localStorage.setItem('arc-manga-reader-zoom',String(mangaState.reader.zoom));updateMangaReader()}};
+    $('#mangaZoomIn',shell).onclick=()=>{if(mangaState.reader){mangaState.reader.zoom=Math.min(1.5,mangaState.reader.zoom+.1);localStorage.setItem('arc-manga-reader-zoom',String(mangaState.reader.zoom));updateMangaReader()}};
+  }catch(err){
+    $('#mangaReaderPages',shell).innerHTML='<div class="manga-reader-loading">'+escapeHtml(err.message||'Chapter unavailable.')+'</div>';
+    $('#mangaReaderClose',shell).onclick=()=>shell.remove();
+  }
+}
+function setupManga(){
+  if(mangaState.initialized){loadMangaHome();return}
+  mangaState.initialized=true;
+  $('#mangaSearchForm')?.addEventListener('submit',e=>{e.preventDefault();searchManga($('#mangaSearchInput')?.value||'')});
+  $('#mangaClearSearch')?.addEventListener('click',clearMangaSearch);
+  $('#mangaHeroRandom')?.addEventListener('click',()=>{
+    const items=mangaState.home?.popular||[];
+    if(items.length){const pick=items[Math.floor(Math.random()*items.length)];openMangaDetails(pick.id,pick)}
+  });
+  $$('[data-manga-filter]').forEach(button=>button.addEventListener('click',()=>{
+    $$('[data-manga-filter]').forEach(x=>x.classList.toggle('active',x===button));
+    const filter=button.dataset.mangaFilter;
+    if(filter==='home'){clearMangaSearch();window.scrollTo({top:0,behavior:'smooth'})}
+    else if(filter==='popular')$('#mangaPopularRow')?.scrollIntoView({behavior:'smooth',block:'center'});
+    else if(filter==='recent')$('#mangaRecentRow')?.scrollIntoView({behavior:'smooth',block:'center'});
+    else if(filter==='saved')$('#mangaSavedSection')?.scrollIntoView({behavior:'smooth',block:'center'});
+  }));
+  document.addEventListener('keydown',event=>{
+    const reader=mangaState.reader;
+    if(!reader)return;
+    if(event.key==='Escape'){$('#mangaReaderClose')?.click();return}
+    if(reader.mode==='page'){
+      if(event.key==='ArrowLeft')gotoMangaPage(-1);
+      if(event.key==='ArrowRight')gotoMangaPage(1);
+    }
+  });
+  loadMangaHome();
 }
 
 function normalizeWebTarget(input=''){
