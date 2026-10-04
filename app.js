@@ -893,27 +893,41 @@ async function applyWallpaperTheme(name){
   if(!def){
     video.pause();
     video.hidden=true;
+    video.style.opacity='0';
     video.removeAttribute('src');
     video.load();
     document.body.style.removeProperty('--wallpaper-dim');
     return;
   }
-  document.body.style.setProperty('--wallpaper-dim',String(def.dim||.48));
+  document.body.style.setProperty('--wallpaper-dim',String(def.dim||.58));
   try{
     const url=await wallpaperUrl(name);
     if(token!==wallpaperState.token||document.body.dataset.theme!==name)return;
     video.hidden=false;
     video.style.opacity='0';
+    const fail=()=>{
+      if(token!==wallpaperState.token)return;
+      video.pause();
+      video.hidden=true;
+      video.style.opacity='0';
+      console.warn('Wallpaper source unavailable:',name);
+    };
+    video.addEventListener('error',fail,{once:true});
     if(video.src!==url){
       video.src=url;
       video.load();
     }
-    const reveal=()=>{video.style.opacity='1';syncWallpaperPlayback()};
+    const reveal=()=>{
+      if(token!==wallpaperState.token)return;
+      video.style.opacity='1';
+      syncWallpaperPlayback();
+    };
     if(video.readyState>=2)reveal();
     else video.addEventListener('loadeddata',reveal,{once:true});
   }catch(err){
     console.error('Wallpaper failed to load',err);
     video.hidden=true;
+    video.style.opacity='0';
   }
 }
 function setupThemes(){
