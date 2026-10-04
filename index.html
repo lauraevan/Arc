@@ -4,8 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b0b0b" />
-  <title>Arc</title>
-  <link rel="preconnect" href="https://raw.githubusercontent.com" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="description" content="Arc brings browser games, cloud gaming, movies and shows, music, private chatrooms, themes and web browsing into one fast interface." />
+  <meta name="robots" content="index,follow" />
+  <meta property="og:title" content="Arc" />
+  <meta property="og:description" content="Games, cloud gaming, movies, music, chatrooms and the web in one fast interface." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://arc-ubg.onrender.com/" />
+  <link rel="canonical" href="https://arc-ubg.onrender.com/" />
+  <title>Arc | Games, Cloud, Movies, Music & Web</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -86,7 +93,7 @@
         </button>
         <div class="search-wrap">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-          <input id="globalSearch" autocomplete="off" placeholder="Search The Web" />
+          <input id="globalSearch" autocomplete="off" placeholder="Search The Web" aria-label="Search the web" />
           <kbd>/</kbd>
         </div>
         <button class="profile-button" aria-label="Profile"><span>A</span></button>
@@ -94,12 +101,12 @@
 
       <section class="view active" id="view-home">
         <div class="hero" id="homeHero">
-          <img class="hero-bg" id="homeHeroBg" src="assets/hero.svg" alt="" />
+          <img class="hero-bg" id="homeHeroBg" src="assets/hero.svg" alt="" width="1600" height="700" loading="eager" decoding="async" fetchpriority="high" />
           <div class="hero-scrim"></div>
           <div class="hero-copy">
             <span class="eyebrow" id="homeHeroEyebrow">ARC <i></i> FEATURED GAME</span>
-            <h1 id="homeHeroTitle">Your whole break,<br>in one place.</h1>
-            <p id="homeHeroText">Loading featured games from the Arc library.</p>
+            <h1 id="homeHeroTitle">Bendy and the Ink Machine</h1>
+            <p id="homeHeroText">Port by crackers &amp; slqnt. Play instantly from the Arc game library.</p>
             <div class="hero-actions">
               <button class="primary" id="homeHeroPlay" type="button" disabled>Play now</button>
               <button class="secondary" data-go="games">Browse games</button>
@@ -133,7 +140,7 @@
             <p id="gameCount">Loading the Arc library…</p>
           </div>
           <div class="games-controls">
-            <input id="gameSearch" placeholder="Search games" autocomplete="off" />
+            <input id="gameSearch" placeholder="Search games" autocomplete="off" aria-label="Search games" />
             <select id="gameFilter" aria-label="Game filter">
               <option value="all">All games</option>
               <option value="featured">Featured</option>
@@ -152,7 +159,7 @@
           </button>
           <form class="web-address" id="webAddressForm">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-            <input id="webAddress" autocomplete="off" placeholder="Search the web or enter a URL" />
+            <input id="webAddress" autocomplete="off" placeholder="Search the web or enter a URL" aria-label="Web address or search" />
           </form>
           <button id="webHome" class="web-nav-button web-home-button" aria-label="Web home">
             <svg viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8V21h-6v-6H9v6H3z"/></svg>
@@ -165,7 +172,7 @@
             <p>Browse through Arc using Scramjet v2.</p>
             <form class="web-start-search" id="webStartForm">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-              <input id="webStartInput" autocomplete="off" placeholder="Search the web or enter a URL" />
+              <input id="webStartInput" autocomplete="off" placeholder="Search the web or enter a URL" aria-label="Search the web or enter a URL" />
             </form>
           </div>
         </div>
@@ -183,7 +190,7 @@
           </div>
           <div class="cloud-search-wrap">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-            <input id="cloudSearch" autocomplete="off" placeholder="Search cloud games" />
+            <input id="cloudSearch" autocomplete="off" placeholder="Search cloud games" aria-label="Search cloud games" />
           </div>
         </div>
 
@@ -219,7 +226,7 @@
           </div>
           <form class="media-search" id="mediaSearchForm">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-            <input id="mediaSearchInput" autocomplete="off" placeholder="Search movies and shows" />
+            <input id="mediaSearchInput" autocomplete="off" placeholder="Search movies and shows" aria-label="Search movies and shows" />
           </form>
         </div>
 
