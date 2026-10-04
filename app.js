@@ -27,7 +27,7 @@ const WALLPAPER_THEMES={
     fallback:'assets/wallpapers/green-tree.b64',accent:'#78a86b',dim:.60
   },
   'japanese-summer':{
-    file:'assets/wallpapers/japanese-summer.b64',accent:'#d79b70',dim:.58
+    imageB64:'assets/wallpapers/japanese-summer.jpg.b64',accent:'#d79b70',dim:.54
   }
 };
 const wallpaperState={urls:new Map(),token:0};
@@ -890,6 +890,8 @@ async function applyWallpaperTheme(name){
   if(!video)return;
   const def=WALLPAPER_THEMES[name];
   const token=++wallpaperState.token;
+  document.body.classList.remove('wallpaper-static');
+  document.body.style.removeProperty('--wallpaper-image');
   if(!def){
     video.pause();
     video.hidden=true;
@@ -900,6 +902,24 @@ async function applyWallpaperTheme(name){
     return;
   }
   document.body.style.setProperty('--wallpaper-dim',String(def.dim||.58));
+  if(def.imageB64){
+    video.pause();
+    video.hidden=true;
+    video.style.opacity='0';
+    video.removeAttribute('src');
+    video.load();
+    try{
+      const res=await fetch(def.imageB64,{cache:'force-cache'});
+      if(!res.ok)throw new Error('wallpaper request failed');
+      const encoded=(await res.text()).trim();
+      if(token!==wallpaperState.token||document.body.dataset.theme!==name)return;
+      document.body.classList.add('wallpaper-static');
+      document.body.style.setProperty('--wallpaper-image',`url("data:image/jpeg;base64,${encoded}")`);
+    }catch(err){
+      console.error('Wallpaper failed to load',err);
+    }
+    return;
+  }
   try{
     const url=await wallpaperUrl(name);
     if(token!==wallpaperState.token||document.body.dataset.theme!==name)return;
