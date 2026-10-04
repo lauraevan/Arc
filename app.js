@@ -9,6 +9,15 @@ const state={games:[],filtered:[],visible:60,view:'home',heroItems:[],heroIndex:
 const cloudState={games:[],filtered:[],tag:'All',featured:null,token:null,tokenExpires:0,loading:false,active:null,pingTimer:null};
 const webState={target:null,proxyUrl:null};
 const mediaState={loaded:false,loading:false,home:null,featured:null,query:'',hlsPromise:null};
+const WALLPAPER_THEMES={
+  fireflies:{file:'assets/wallpapers/fireflies.b64',accent:'#d5b36a',dim:.48},
+  cherry:{file:'assets/wallpapers/cherry.b64',accent:'#e2a2ba',dim:.46},
+  makima:{file:'assets/wallpapers/makima.b64',accent:'#d46558',dim:.52},
+  'green-tree':{file:'assets/wallpapers/green-tree.b64',accent:'#78a86b',dim:.45},
+  'japanese-summer':{file:'assets/wallpapers/japanese-summer.b64',accent:'#d79b70',dim:.44}
+};
+const wallpaperState={urls:new Map(),token:0};
+
 
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -836,23 +845,85 @@ function setupSearch(){
     if(e.key==='Escape'){const p=$('.player');if(p)p.remove();else document.body.classList.remove('sidebar-open')}
   });
 }
+async function wallpaperUrl(name){
+  if(wallpaperState.urls.has(name))return wallpaperState.urls.get(name);
+  const def=WALLPAPER_THEMES[name];
+  if(!def)return null;
+  const res=await fetch(def.file,{cache:'force-cache'});
+  if(!res.ok)throw new Error('wallpaper request failed');
+  const encoded=(await res.text()).trim();
+  const raw=atob(encoded);
+  const bytes=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
+  const url=URL.createObjectURL(new Blob([bytes],{type:'video/mp4'}));
+  wallpaperState.urls.set(name,url);
+  return url;
+}
+function syncWallpaperPlayback(){
+  const video=$('#themeWallpaper');
+  if(!video||video.hidden)return;
+  if(document.body.classList.contains('reduce-motion'))video.pause();
+  else video.play().catch(()=>{});
+}
+async function applyWallpaperTheme(name){
+  const video=$('#themeWallpaper');
+  if(!video)return;
+  const def=WALLPAPER_THEMES[name];
+  const token=++wallpaperState.token;
+  if(!def){
+    video.pause();
+    video.hidden=true;
+    video.removeAttribute('src');
+    video.load();
+    document.body.style.removeProperty('--wallpaper-dim');
+    return;
+  }
+  document.body.style.setProperty('--wallpaper-dim',String(def.dim||.48));
+  try{
+    const url=await wallpaperUrl(name);
+    if(token!==wallpaperState.token||document.body.dataset.theme!==name)return;
+    video.hidden=false;
+    if(video.src!==url){
+      video.src=url;
+      video.load();
+    }
+    syncWallpaperPlayback();
+  }catch(err){
+    console.error('Wallpaper failed to load',err);
+    video.hidden=true;
+  }
+}
 function setupThemes(){
   const saved=localStorage.getItem('arc-theme')||'arc';
   setTheme(saved);
   $$('.theme-option').forEach(b=>b.addEventListener('click',()=>setTheme(b.dataset.theme)));
   const compact=$('#compactToggle'),motion=$('#motionToggle');
-  compact.checked=localStorage.getItem('arc-compact')==='1';
-  motion.checked=localStorage.getItem('arc-motion')==='1';
-  document.body.classList.toggle('compact',compact.checked);
-  document.body.classList.toggle('reduce-motion',motion.checked);
-  compact.addEventListener('change',()=>{document.body.classList.toggle('compact',compact.checked);localStorage.setItem('arc-compact',compact.checked?'1':'0')});
-  motion.addEventListener('change',()=>{document.body.classList.toggle('reduce-motion',motion.checked);localStorage.setItem('arc-motion',motion.checked?'1':'0')});
+  if(compact){
+    compact.checked=localStorage.getItem('arc-compact')==='1';
+    document.body.classList.toggle('compact',compact.checked);
+    compact.addEventListener('change',()=>{
+      document.body.classList.toggle('compact',compact.checked);
+      localStorage.setItem('arc-compact',compact.checked?'1':'0');
+    });
+  }
+  if(motion){
+    motion.checked=localStorage.getItem('arc-motion')==='1';
+    document.body.classList.toggle('reduce-motion',motion.checked);
+    motion.addEventListener('change',()=>{
+      document.body.classList.toggle('reduce-motion',motion.checked);
+      localStorage.setItem('arc-motion',motion.checked?'1':'0');
+      syncWallpaperPlayback();
+    });
+  }
 }
 function setTheme(name){
+  const valid=$$('.theme-option[data-theme]').some(b=>b.dataset.theme===name)?name:'arc';
   document.body.classList.remove('theme-mono','theme-midnight');
-  if(name==='mono')document.body.classList.add('theme-mono');
-  if(name==='midnight')document.body.classList.add('theme-midnight');
-  $$('.theme-option').forEach(b=>b.classList.toggle('selected',b.dataset.theme===name));
-  localStorage.setItem('arc-theme',name);
+  document.body.dataset.theme=valid;
+  const wallpaper=!!WALLPAPER_THEMES[valid];
+  document.body.classList.toggle('wallpaper-theme',wallpaper);
+  $$('.theme-option').forEach(b=>b.classList.toggle('selected',b.dataset.theme===valid));
+  localStorage.setItem('arc-theme',valid);
+  applyWallpaperTheme(valid);
 }
 setupNavigation();setupSearch();setupThemes();setupWeb();setupCloud();setupMedia();loadGames();
