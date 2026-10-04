@@ -1222,6 +1222,7 @@ function updateMangaReader(){
   $('#mangaReaderMode',shell).textContent=reader.mode==='scroll'?'Scroll':'Pages';
   shell.dataset.mode=reader.mode;
   shell.style.setProperty('--manga-zoom',String(reader.zoom));
+  shell.style.setProperty('--manga-page-width',Math.round(760*reader.zoom)+'px');
   const pages=$('#mangaReaderPages',shell);
   if(reader.mode==='page'){
     pages.innerHTML='';
