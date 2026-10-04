@@ -293,6 +293,25 @@
             </div>
             <div class="music-home" id="musicHome">
               <div class="music-greeting"><span class="kicker">ARC MUSIC</span><h1>Good listening starts here.</h1></div>
+
+              <section class="music-now-card" id="musicNowCard" hidden>
+                <div class="music-now-art-wrap" id="musicMotionArt">
+                  <img class="music-now-art-blur" id="musicNowArtBlur" alt="" />
+                  <img class="music-now-art" id="musicNowArt" alt="" />
+                  <canvas id="musicVisualizer" aria-hidden="true"></canvas>
+                </div>
+                <div class="music-now-copy">
+                  <span class="kicker">NOW PLAYING</span>
+                  <h2 id="musicNowTitle">Nothing playing</h2>
+                  <p id="musicNowArtist">Arc Music</p>
+                  <small id="musicNowAlbum"></small>
+                  <div class="music-now-actions">
+                    <button type="button" id="musicNowLyrics">Lyrics</button>
+                    <button type="button" id="musicNowSound">Sound</button>
+                  </div>
+                </div>
+              </section>
+
               <div class="music-shortcuts">
                 <button type="button" data-music-query="top hits 2026"><span class="music-shortcut-art hits">01</span><b>Top Hits</b></button>
                 <button type="button" data-music-query="chill mix"><span class="music-shortcut-art chill">CH</span><b>Chill Mix</b></button>
@@ -309,6 +328,9 @@
                 <button class="music-card" type="button" data-music-query="rap hits"><span class="music-card-art rap">Rap</span><b>Rap mix</b><small>Current tracks and essentials.</small></button>
                 <button class="music-card" type="button" data-music-query="rock classics"><span class="music-card-art rock">Rock</span><b>Rock classics</b><small>Guitars, drums, and timeless tracks.</small></button>
               </div>
+
+              <div class="music-shelf-head music-fresh-head"><h2>Fresh from YouTube Music</h2><span>Music catalog only</span></div>
+              <div class="music-artwork-grid" id="musicHomeShelf"></div>
             </div>
             <div class="music-search-view" id="musicSearchView" hidden>
               <div class="music-results-head"><div><span class="kicker">SEARCH</span><h2 id="musicResultsTitle">Results</h2></div><span id="musicStatus" role="status" aria-live="polite"></span></div>
@@ -378,13 +400,18 @@
   </div>
 
 
+  <audio id="musicAudio" crossorigin="anonymous" preload="none"></audio>
   <div id="musicYoutubeHost" class="music-youtube-host" aria-hidden="true"></div>
+
   <section class="music-player" id="musicPlayer" aria-label="Music player" hidden>
     <div class="music-player-track">
-      <img id="musicPlayerArt" alt="" />
+      <button class="music-player-art-button" id="musicArtworkButton" type="button" aria-label="Open now playing">
+        <img id="musicPlayerArt" alt="" />
+      </button>
       <div class="music-player-meta"><b id="musicPlayerTitle">Nothing playing</b><span id="musicPlayerArtist">Arc Music</span></div>
       <button class="music-like" id="musicLike" type="button" aria-label="Like track">♥</button>
     </div>
+
     <div class="music-player-center">
       <div class="music-player-controls">
         <button id="musicShuffle" type="button" aria-label="Shuffle">⌘</button>
@@ -395,8 +422,75 @@
       </div>
       <div class="music-progress-row"><span id="musicCurrentTime">0:00</span><input id="musicProgress" type="range" min="0" max="1000" value="0" aria-label="Music playback position" /><span id="musicDuration">0:00</span></div>
     </div>
-    <div class="music-player-side"><span aria-hidden="true">Vol</span><input id="musicVolume" type="range" min="0" max="100" step="1" value="90" aria-label="Music volume" /></div>
+
+    <div class="music-player-side">
+      <span class="music-engine-pill" id="musicEnginePill">YT Music</span>
+      <button type="button" id="musicLyricsButton" aria-label="Show lyrics">Lyrics</button>
+      <button type="button" id="musicSoundButton" aria-label="Open sound settings">Sound</button>
+      <input id="musicVolume" type="range" min="0" max="100" step="1" value="90" aria-label="Music volume" />
+    </div>
   </section>
+
+  <div class="music-drawer-backdrop" id="musicDrawerBackdrop" hidden></div>
+
+  <aside class="music-drawer music-lyrics-panel" id="musicLyricsPanel" aria-label="Lyrics" hidden>
+    <div class="music-drawer-head">
+      <div><span class="kicker">LYRICS</span><h2 id="musicLyricsTitle">Lyrics</h2></div>
+      <button type="button" class="music-drawer-close" data-close-music-drawer aria-label="Close lyrics">×</button>
+    </div>
+    <div class="music-lyrics-track">
+      <img id="musicLyricsArt" alt="" />
+      <div><b id="musicLyricsTrack">Nothing playing</b><span id="musicLyricsArtist">Arc Music</span></div>
+    </div>
+    <div class="music-lyrics-body" id="musicLyricsBody"><p>Play a song to view lyrics.</p></div>
+  </aside>
+
+  <aside class="music-drawer music-sound-panel" id="musicSoundPanel" aria-label="Sound settings" hidden>
+    <div class="music-drawer-head">
+      <div><span class="kicker">ARC AUDIO</span><h2>Sound</h2></div>
+      <button type="button" class="music-drawer-close" data-close-music-drawer aria-label="Close sound settings">×</button>
+    </div>
+
+    <div class="music-sound-status">
+      <span>Engine</span><b id="musicSoundEngine">Automatic</b>
+    </div>
+
+    <div class="music-sound-section">
+      <div class="music-sound-section-head"><div><b>Equalizer</b><span>6-band Web Audio EQ</span></div></div>
+      <div class="music-eq-presets" id="musicEqPresets">
+        <button type="button" data-eq-preset="flat" class="active">Flat</button>
+        <button type="button" data-eq-preset="bass">Bass</button>
+        <button type="button" data-eq-preset="vocal">Vocal</button>
+        <button type="button" data-eq-preset="bright">Bright</button>
+        <button type="button" data-eq-preset="night">Late Night</button>
+      </div>
+      <div class="music-eq" id="musicEq">
+        <label><span>60</span><input type="range" min="-12" max="12" step="1" value="0" data-eq-band="0" /><small>Hz</small></label>
+        <label><span>170</span><input type="range" min="-12" max="12" step="1" value="0" data-eq-band="1" /><small>Hz</small></label>
+        <label><span>350</span><input type="range" min="-12" max="12" step="1" value="0" data-eq-band="2" /><small>Hz</small></label>
+        <label><span>1K</span><input type="range" min="-12" max="12" step="1" value="0" data-eq-band="3" /><small>Hz</small></label>
+        <label><span>3.5K</span><input type="range" min="-12" max="12" step="1" value="0" data-eq-band="4" /><small>Hz</small></label>
+        <label><span>10K</span><input type="range" min="-12" max="12" step="1" value="0" data-eq-band="5" /><small>Hz</small></label>
+      </div>
+    </div>
+
+    <div class="music-sound-section">
+      <label class="music-feature-row">
+        <span><b>Spatial Width</b><small>Virtual stereo widening</small></span>
+        <input id="musicSpatial" type="range" min="0" max="100" step="1" value="0" aria-label="Spatial width" />
+      </label>
+      <label class="music-feature-row switch-row">
+        <span><b>Sound Check</b><small>Gentle loudness normalization</small></span>
+        <input id="musicNormalize" type="checkbox" />
+      </label>
+      <label class="music-feature-row switch-row">
+        <span><b>Motion Artwork</b><small>Depth motion and audio-reactive cover art</small></span>
+        <input id="musicMotion" type="checkbox" checked />
+      </label>
+    </div>
+
+    <p class="music-sound-note" id="musicSoundNote">Enhanced sound activates when ARC can use the direct YouTube Music audio engine. Playback automatically falls back when needed.</p>
+  </aside>
   <div class="mobile-backdrop" id="mobileBackdrop"></div>
   <script src="app.js"></script>
 </body>
