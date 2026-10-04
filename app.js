@@ -560,31 +560,111 @@ function absoluteMediaUrl(url=''){
 function ensureHls(){
   if(window.Hls)return Promise.resolve(window.Hls);
   if(mediaState.hlsPromise)return mediaState.hlsPromise;
+  const sources=[
+    'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.6.13/hls.min.js'
+  ];
   mediaState.hlsPromise=new Promise((resolve,reject)=>{
-    const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js';s.onload=()=>resolve(window.Hls);s.onerror=()=>reject(new Error('Could not load HLS player'));document.head.append(s);
+    let index=0;
+    const load=()=>{
+      if(index>=sources.length){reject(new Error('Could not load the HLS player'));return}
+      const s=document.createElement('script');
+      s.src=sources[index++];
+      s.onload=()=>window.Hls?resolve(window.Hls):load();
+      s.onerror=()=>{s.remove();load()};
+      document.head.append(s);
+    };
+    load();
   });
   return mediaState.hlsPromise;
 }
+function resetMediaVideo(video){
+  try{video?._arcHls?.destroy()}catch{}
+  video._arcHls=null;
+  try{video.pause()}catch{}
+  video.removeAttribute('src');
+  video.load();
+}
+function waitForMediaReady(video,timeout=12000){
+  return new Promise((resolve,reject)=>{
+    let settled=false;
+    const finish=(error)=>{
+      if(settled)return;
+      settled=true;
+      clearTimeout(timer);
+      video.removeEventListener('loadedmetadata',ready);
+      video.removeEventListener('canplay',ready);
+      video.removeEventListener('error',failed);
+      error?reject(error):resolve();
+    };
+    const ready=()=>finish();
+    const failed=()=>finish(new Error(video.error?.message||'Source failed to load'));
+    const timer=setTimeout(()=>finish(new Error('Source timed out')),timeout);
+    video.addEventListener('loadedmetadata',ready);
+    video.addEventListener('canplay',ready);
+    video.addEventListener('error',failed);
+  });
+}
 async function attachMediaSource(video,server){
+  resetMediaVideo(video);
   const url=absoluteMediaUrl(server.play_url||'');
   if(!url)throw new Error('No playable URL returned');
   const isHls=server.type==='hls'||/\.m3u8(?:$|\?)/i.test(url);
-  if(isHls&&video.canPlayType('application/vnd.apple.mpegurl')){video.src=url;return}
+  if(isHls&&video.canPlayType('application/vnd.apple.mpegurl')){
+    video.src=url;
+    video.load();
+    await waitForMediaReady(video,12000);
+    return;
+  }
   if(isHls){
     const Hls=await ensureHls();
     if(!Hls?.isSupported())throw new Error('HLS playback is not supported here');
-    const hls=new Hls({enableWorker:true,lowLatencyMode:false});
-    hls.loadSource(url);hls.attachMedia(video);
-    video._arcHls=hls;return;
+    const hls=new Hls({
+      enableWorker:true,
+      lowLatencyMode:false,
+      manifestLoadingTimeOut:10000,
+      manifestLoadingMaxRetry:2,
+      levelLoadingTimeOut:10000,
+      levelLoadingMaxRetry:2,
+      fragLoadingTimeOut:12000,
+      fragLoadingMaxRetry:3
+    });
+    video._arcHls=hls;
+    const fatal=new Promise((_,reject)=>{
+      hls.on(Hls.Events.ERROR,(_event,data)=>{
+        if(data?.fatal)reject(new Error(`HLS source failed: ${data.details||data.type||'unknown error'}`));
+      });
+    });
+    hls.loadSource(url);
+    hls.attachMedia(video);
+    await Promise.race([waitForMediaReady(video,14000),fatal]);
+    return;
   }
   video.src=url;
+  video.load();
+  await waitForMediaReady(video,12000);
+}
+function mediaServerRank(server){
+  const provider=String(server?.provider||'').toLowerCase();
+  const name=String(server?.name||'').toLowerCase();
+  if(provider==='orlando')return 0;
+  if(provider==='vidy'&&name.includes('miami'))return 1;
+  if(provider==='vidcore')return 2;
+  if(provider==='castle')return 3;
+  if(provider==='vidlink')return 4;
+  if(provider==='vidnest')return 5;
+  if(provider==='vidzee')return 6;
+  if(provider==='vidrock')return 7;
+  if(provider==='cinejoy')return 8;
+  if(provider==='vixsrc')return 9;
+  return 20;
 }
 async function playMedia(opts){
   $('#mediaPlayer')?.remove();
   const shell=document.createElement('div');shell.className='media-player';shell.id='mediaPlayer';
   shell.innerHTML=`<div class="media-player-bar"><div><b></b><small id="mediaPlayerStatus">Finding a stream…</small></div><button aria-label="Close">×</button></div><div class="media-player-stage"><div class="media-player-loading">Connecting to Arc media…</div></div>`;
   $('.media-player-bar b',shell).textContent=opts.title||'Arc';
-  $('.media-player-bar button',shell).onclick=()=>{const v=$('video',shell);try{v?._arcHls?.destroy()}catch{}shell.remove()};
+  $('.media-player-bar button',shell).onclick=()=>{const v=$('video',shell);resetMediaVideo(v);shell.remove()};
   document.body.append(shell);
   try{
     const qs=new URLSearchParams({type:opts.type,id:String(opts.id)});
@@ -593,13 +673,31 @@ async function playMedia(opts){
     const res=await fetch(`${MEDIA_API}/media/v1/streams?${qs}`,{cache:'no-store'});
     const data=await res.json().catch(()=>({}));
     if(!res.ok)throw new Error(data.detail||data.error||'Stream lookup failed');
-    const server=(data.servers||[])[0];
-    if(!server)throw new Error('No playable stream was found for this title');
+    const servers=[...(data.servers||[])].sort((a,b)=>mediaServerRank(a)-mediaServerRank(b));
+    if(!servers.length)throw new Error('No playable stream was found for this title');
     const stage=$('.media-player-stage',shell);const video=document.createElement('video');
     video.className='media-video';video.controls=true;video.autoplay=true;video.playsInline=true;
     stage.replaceChildren(video);
-    $('#mediaPlayerStatus',shell).textContent=[server.name,server.quality].filter(Boolean).join(' · ')||'Playing';
-    await attachMediaSource(video,server);
+
+    let active=null;
+    let lastError=null;
+    for(let i=0;i<servers.length;i++){
+      if(!document.body.contains(shell))return;
+      const server=servers[i];
+      const status=$('#mediaPlayerStatus',shell);
+      if(status)status.textContent=`Trying ${server.name||server.provider||`source ${i+1}`}${server.quality?` · ${server.quality}`:''}`;
+      try{
+        await attachMediaSource(video,server);
+        active=server;
+        break;
+      }catch(error){
+        lastError=error;
+        resetMediaVideo(video);
+      }
+    }
+    if(!active)throw lastError||new Error('All available sources failed');
+    const status=$('#mediaPlayerStatus',shell);
+    if(status)status.textContent=[active.name,active.quality].filter(Boolean).join(' · ')||'Playing';
     video.play().catch(()=>{});
   }catch(err){
     const stage=$('.media-player-stage',shell);if(stage)stage.innerHTML=`<div class="media-player-loading"><b>Couldn’t start playback</b><span>${escapeHtml(err.message||'Try another title.')}</span></div>`;
