@@ -806,3 +806,56 @@ body.wallpaper-static .theme-wallpaper-shade{
 @media(max-width:700px){
   #featuredGames{min-height:205px}
 }
+
+
+/* Accessibility 100 pass */
+:where(button,input,select,textarea,[tabindex]):focus-visible{
+  outline:2px solid #fff !important;
+  outline-offset:3px;
+}
+:where(button,input,select,textarea,[tabindex]):focus:not(:focus-visible){
+  outline:none;
+}
+
+/* Keep secondary copy comfortably above WCAG AA contrast on dark surfaces. */
+.kicker,
+.feature-card small,
+.settings-list small,
+.sidebar-status,
+.cloud-status,
+.cloud-game-tags,
+.cloud-empty span,
+.media-empty,
+.media-card-copy span,
+.media-player-bar small,
+.web-start p{
+  color:#a3a3a3;
+}
+.cloud-status.online{color:#aebc9d}
+.cloud-status.offline{color:#c99898}
+
+/* Preserve the thin carousel visual while giving each control a real hit target. */
+.hero-dots{gap:2px}
+.hero-dot{
+  width:32px !important;
+  height:28px !important;
+  position:relative;
+  background:transparent !important;
+  border-radius:8px;
+}
+.hero-dot::after{
+  content:"";
+  position:absolute;
+  left:7px;right:7px;top:50%;
+  height:3px;
+  transform:translateY(-50%);
+  border-radius:99px;
+  background:rgba(255,255,255,.42);
+}
+.hero-dot.active::after{background:#f07a22}
+
+/* Bring small icon controls up to accessible pointer-target sizes. */
+.sidebar-collapse{min-width:40px;min-height:40px}
+.web-nav-button{min-width:40px;min-height:40px}
+.profile-button{min-width:40px;min-height:40px}
+.menu-button{min-width:40px;min-height:40px}
