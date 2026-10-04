@@ -68,6 +68,7 @@ function gameCard(game){
 function renderFeatured(){
   const row=$('#featuredGames'); if(!row)return;
   cancelAnimationFrame(state.featuredRaf);
+  clearInterval(state.featuredTimer);
   row.innerHTML='';
   row.scrollLeft=0;
 
@@ -75,60 +76,52 @@ function renderFeatured(){
   const featured=source.filter(g=>g.featured).slice(0,12);
   const items=(featured.length?featured:source.slice(0,12));
   items.forEach(g=>row.append(gameCard(g)));
-
-  if(items.length>1){
-    [...row.children].forEach(card=>{
-      const clone=card.cloneNode(true);
-      clone.dataset.carouselClone='1';
-      clone.tabIndex=-1;
-      clone.setAttribute('aria-hidden','true');
-      clone.addEventListener('click',event=>{
-        event.preventDefault();
-        const index=[...row.children].indexOf(clone)-items.length;
-        const game=items[index];
-        if(game)openGame(game);
-      });
-      row.append(clone);
-    });
-  }
   startFeaturedAutoScroll();
 }
 function startFeaturedAutoScroll(){
-  cancelAnimationFrame(state.featuredRaf);
   clearInterval(state.featuredTimer);
+  cancelAnimationFrame(state.featuredRaf);
   const row=$('#featuredGames');
-  if(!row||row.children.length<4)return;
+  if(!row||row.children.length<3)return;
 
-  if(!row.dataset.autoScrollBound){
-    row.dataset.autoScrollBound='1';
+  if(!row.dataset.carouselBound){
+    row.dataset.carouselBound='1';
     row.dataset.autoPaused='0';
-    const setPaused=value=>{row.dataset.autoPaused=value?'1':'0'};
-    row.addEventListener('pointerenter',()=>setPaused(true));
-    row.addEventListener('pointerleave',()=>setPaused(false));
-    row.addEventListener('focusin',()=>setPaused(true));
-    row.addEventListener('focusout',()=>setPaused(false));
-    row.addEventListener('touchstart',()=>setPaused(true),{passive:true});
-    row.addEventListener('touchend',()=>setTimeout(()=>setPaused(false),1200),{passive:true});
-    row.addEventListener('wheel',()=>setPaused(true),{passive:true});
+    const pause=()=>{row.dataset.autoPaused='1'};
+    const resume=()=>{row.dataset.autoPaused='0'};
+    row.addEventListener('pointerenter',pause);
+    row.addEventListener('pointerleave',resume);
+    row.addEventListener('focusin',pause);
+    row.addEventListener('focusout',resume);
+    row.addEventListener('touchstart',pause,{passive:true});
+    row.addEventListener('touchend',()=>setTimeout(resume,1400),{passive:true});
+    row.addEventListener('scroll',()=>{
+      if(row.dataset.autoAnimating==='1')return;
+      pause();
+      clearTimeout(row._arcResumeTimer);
+      row._arcResumeTimer=setTimeout(resume,2200);
+    },{passive:true});
   }
 
-  let last=performance.now();
-  const speed=26;
-  const tick=now=>{
-    const dt=Math.min(48,now-last);
-    last=now;
-
-    if(row.dataset.autoPaused!=='1'&&state.view==='home'&&!document.hidden&&!document.body.classList.contains('reduce-motion')){
-      const firstClone=row.querySelector('[data-carousel-clone="1"]');
-      const loopWidth=firstClone?firstClone.offsetLeft-row.firstElementChild.offsetLeft:row.scrollWidth/2;
-      if(loopWidth>row.clientWidth){
-        row.scrollLeft+=speed*(dt/1000);
-        if(row.scrollLeft>=loopWidth)row.scrollLeft-=loopWidth;
-      }
-    }
-    state.featuredRaf=requestAnimationFrame(tick);
+  const advance=()=>{
+    if(row.dataset.autoPaused==='1'||state.view!=='home'||document.hidden||document.body.classList.contains('reduce-motion'))return;
+    const max=Math.max(0,row.scrollWidth-row.clientWidth);
+    if(max<12)return;
+    const card=row.firstElementChild;
+    const cardWidth=card?.getBoundingClientRect().width||220;
+    const gap=parseFloat(getComputedStyle(row).gap||'14')||14;
+    const visible=Math.max(1,Math.floor((row.clientWidth+gap)/(cardWidth+gap)));
+    const step=Math.max(cardWidth+gap,(cardWidth+gap)*Math.max(2,visible-1));
+    const nearEnd=row.scrollLeft+step>=max-6;
+    row.dataset.autoAnimating='1';
+    row.scrollTo({
+      left:nearEnd?0:Math.min(max,row.scrollLeft+step),
+      behavior:'smooth'
+    });
+    setTimeout(()=>{row.dataset.autoAnimating='0'},900);
   };
-  state.featuredRaf=requestAnimationFrame(tick);
+
+  state.featuredTimer=setInterval(advance,4800);
 }
 function homeHeroItems(){
   const source=state.homeGames.length?state.homeGames:state.games;
@@ -1068,40 +1061,61 @@ function renderMangaRow(id,items){
   if(!host.children.length)host.innerHTML='<div class="manga-empty">Nothing here yet.</div>';
 }
 function renderMangaArtwork(popular=[],recent=[]){
-  const collage=$('#mangaHeroCollage');
-  if(collage){
-    collage.innerHTML='';
-    popular.slice(1,6).forEach((item,index)=>{
+  const editorial=$('#mangaEditorialMain');
+  const stack=$('#mangaEditorialStack');
+  const ranking=$('#mangaRanking');
+
+  const pool=[];
+  const seen=new Set();
+  [...popular,...recent].forEach(item=>{
+    if(item?.id&&!seen.has(item.id)){seen.add(item.id);pool.push(item)}
+  });
+
+  if(editorial){
+    editorial.innerHTML='';
+    const lead=pool[1]||pool[0];
+    if(lead){
       const button=document.createElement('button');
-      button.type='button';
-      button.className='manga-collage-cover manga-collage-'+(index+1);
-      button.setAttribute('aria-label','Open '+mangaTitle(item));
-      const img=document.createElement('img');
-      img.alt='';img.loading='eager';img.decoding='async';img.src=mangaImage(item.image||item.cover);
-      button.append(img);
+      button.type='button';button.className='manga-editorial-feature';
+      const img=document.createElement('img');img.alt='';img.loading='eager';img.src=mangaImage(lead.image||lead.cover);
+      const copy=document.createElement('span');
+      const eyebrow=document.createElement('small');eyebrow.textContent='EDITOR’S PICK';
+      const title=document.createElement('b');title.textContent=mangaTitle(lead);
+      const meta=document.createElement('i');meta.textContent=mangaAltTitle(lead)||'Featured manga';
+      copy.append(eyebrow,title,meta);button.append(img,copy);
+      button.onclick=()=>openMangaDetails(lead.id,lead);
+      editorial.append(button);
+    }
+  }
+
+  if(stack){
+    stack.innerHTML='';
+    pool.slice(2,6).forEach((item,index)=>{
+      const button=document.createElement('button');
+      button.type='button';button.className='manga-editorial-mini';
+      const img=document.createElement('img');img.alt='';img.loading=index<2?'eager':'lazy';img.src=mangaImage(item.image||item.cover);
+      const copy=document.createElement('span');
+      const title=document.createElement('b');title.textContent=mangaTitle(item);
+      const meta=document.createElement('small');meta.textContent=index%2?'Fresh chapter':'Worth reading';
+      copy.append(title,meta);button.append(img,copy);
       button.onclick=()=>openMangaDetails(item.id,item);
-      collage.append(button);
+      stack.append(button);
     });
   }
 
-  const rail=$('#mangaArtRail');
-  if(rail){
-    rail.innerHTML='';
-    const seen=new Set();
-    [...popular,...recent].filter(item=>{
-      if(!item?.id||seen.has(item.id))return false;
-      seen.add(item.id);return true;
-    }).slice(0,10).forEach((item,index)=>{
+  if(ranking){
+    ranking.innerHTML='';
+    pool.slice(0,10).forEach((item,index)=>{
       const button=document.createElement('button');
-      button.type='button';button.className='manga-art-tile';
-      const img=document.createElement('img');
-      img.alt='';img.loading=index<5?'eager':'lazy';img.decoding='async';img.src=mangaImage(item.image||item.cover);
+      button.type='button';button.className='manga-rank-card';
+      const number=document.createElement('strong');number.textContent=String(index+1).padStart(2,'0');
+      const img=document.createElement('img');img.alt='';img.loading=index<4?'eager':'lazy';img.src=mangaImage(item.image||item.cover);
       const copy=document.createElement('span');
       const title=document.createElement('b');title.textContent=mangaTitle(item);
-      const meta=document.createElement('small');meta.textContent=index<5?'Popular pick':'Fresh chapter';
-      copy.append(title,meta);button.append(img,copy);
+      const meta=document.createElement('small');meta.textContent=index<3?'Trending hard':'Popular';
+      copy.append(title,meta);button.append(number,img,copy);
       button.onclick=()=>openMangaDetails(item.id,item);
-      rail.append(button);
+      ranking.append(button);
     });
   }
 }
@@ -1455,6 +1469,7 @@ function setupManga(){
   mangaState.initialized=true;
   $('#mangaSearchForm')?.addEventListener('submit',e=>{e.preventDefault();searchManga($('#mangaSearchInput')?.value||'')});
   $('#mangaClearSearch')?.addEventListener('click',clearMangaSearch);
+  $('[data-manga-query]').forEach(button=>button.addEventListener('click',()=>searchManga(button.dataset.mangaQuery||'')));
   $('#mangaHeroRandom')?.addEventListener('click',()=>{
     const items=mangaState.home?.popular||[];
     if(items.length){const pick=items[Math.floor(Math.random()*items.length)];openMangaDetails(pick.id,pick)}
