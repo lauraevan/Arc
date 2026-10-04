@@ -271,69 +271,104 @@
       </section>
 
       <section class="view music-view" id="view-music">
-        <div class="music-app">
-          <aside class="music-library">
-            <div class="music-library-title">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h3v14H4zM10 5h3v14h-3zM16 7l4-2v12l-4 2z"/></svg>
-              <span>Your Library</span>
+        <div class="music-shell">
+          <aside class="music-side">
+            <div class="music-side-brand">
+              <span class="music-side-mark"></span>
+              <b>Music</b>
             </div>
-            <button class="music-library-item active" type="button" data-music-tab="home"><span>Home</span></button>
-            <button class="music-library-item" type="button" data-music-tab="search"><span>Search</span></button>
-            <div class="music-library-rule"></div>
-            <button class="music-library-item" type="button" data-music-query="liked songs"><span class="music-library-cover liked">♥</span><span class="music-library-copy"><b>Liked Songs</b><small>Playlist</small></span></button>
-            <button class="music-library-item" type="button" data-music-query="discover weekly"><span class="music-library-cover discover">ARC</span><span class="music-library-copy"><b>Discover</b><small>Mix</small></span></button>
+
+            <nav class="music-side-nav" aria-label="Music navigation">
+              <button class="active" type="button" data-music-tab="home">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></svg>
+                <span>Home</span>
+              </button>
+              <button type="button" data-music-tab="search">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+                <span>Search</span>
+              </button>
+            </nav>
+
+            <div class="music-side-section">
+              <span>Your library</span>
+              <button type="button" data-music-query="liked songs">
+                <span class="music-side-cover liked">♥</span>
+                <span><b>Liked Songs</b><small>Playlist</small></span>
+              </button>
+              <button type="button" data-music-query="discover mix">
+                <span class="music-side-cover mix">A</span>
+                <span><b>Arc Mix</b><small>Made for you</small></span>
+              </button>
+            </div>
+
+            <div class="music-side-recents" id="musicSidebarHistory"></div>
           </aside>
-          <div class="music-main-panel">
-            <div class="music-top">
+
+          <div class="music-stage">
+            <header class="music-toolbar">
+              <div class="music-toolbar-actions">
+                <button type="button" data-music-tab="home" aria-label="Music home">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5"/></svg>
+                </button>
+              </div>
               <form class="music-search" id="musicSearchForm">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-                <input id="musicSearchInput" type="search" autocomplete="off" spellcheck="false" aria-label="Search music" placeholder="What do you want to play?" />
+                <input id="musicSearchInput" type="search" autocomplete="off" spellcheck="false" aria-label="Search music" placeholder="Search songs, artists, albums" />
               </form>
-              <span class="music-source-pill">YouTube Music</span>
-            </div>
-            <div class="music-home" id="musicHome">
-              <div class="music-greeting"><span class="kicker">ARC MUSIC</span><h1>Good listening starts here.</h1></div>
+            </header>
 
-              <section class="music-now-card" id="musicNowCard" hidden>
-                <div class="music-now-art-wrap" id="musicMotionArt">
-                  <img class="music-now-art-blur" id="musicNowArtBlur" alt="" />
-                  <img class="music-now-art" id="musicNowArt" alt="" />
-                  <canvas id="musicVisualizer" aria-hidden="true"></canvas>
-                </div>
-                <div class="music-now-copy">
-                  <span class="kicker">NOW PLAYING</span>
-                  <h2 id="musicNowTitle">Nothing playing</h2>
-                  <p id="musicNowArtist">Arc Music</p>
-                  <small id="musicNowAlbum"></small>
-                  <div class="music-now-actions">
-                    <button type="button" id="musicNowLyrics">Lyrics</button>
-                    <button type="button" id="musicNowSound">Sound</button>
-                  </div>
-                </div>
+            <div class="music-home" id="musicHome">
+              <section class="music-home-intro">
+                <span class="kicker">ARC MUSIC</span>
+                <h1>Listen now</h1>
               </section>
 
-              <div class="music-shortcuts">
-                <button type="button" data-music-query="top hits 2026"><span class="music-shortcut-art hits">01</span><b>Top Hits</b></button>
-                <button type="button" data-music-query="chill mix"><span class="music-shortcut-art chill">CH</span><b>Chill Mix</b></button>
-                <button type="button" data-music-query="gaming music mix"><span class="music-shortcut-art gaming">GM</span><b>Gaming Mix</b></button>
-                <button type="button" data-music-query="soundtracks"><span class="music-shortcut-art soundtrack">ST</span><b>Soundtracks</b></button>
-                <button type="button" data-music-query="throwback hits"><span class="music-shortcut-art throwback">TB</span><b>Throwbacks</b></button>
-                <button type="button" data-music-query="focus music"><span class="music-shortcut-art focus">FC</span><b>Focus</b></button>
-              </div>
-              <div class="music-shelf-head"><h2>Jump back in</h2><button type="button" data-music-tab="search">Show all</button></div>
-              <div class="music-card-grid">
-                <button class="music-card" type="button" data-music-query="popular music"><span class="music-card-art popular">Popular</span><b>Popular right now</b><small>Big songs people keep coming back to.</small></button>
-                <button class="music-card" type="button" data-music-query="indie mix"><span class="music-card-art indie">Indie</span><b>Indie mix</b><small>Fresh picks and familiar favorites.</small></button>
-                <button class="music-card" type="button" data-music-query="lofi hip hop"><span class="music-card-art lofi">Lo-fi</span><b>Lo-fi</b><small>Low-key tracks for working or relaxing.</small></button>
-                <button class="music-card" type="button" data-music-query="rap hits"><span class="music-card-art rap">Rap</span><b>Rap mix</b><small>Current tracks and essentials.</small></button>
-                <button class="music-card" type="button" data-music-query="rock classics"><span class="music-card-art rock">Rock</span><b>Rock classics</b><small>Guitars, drums, and timeless tracks.</small></button>
-              </div>
+              <section class="music-home-section music-quick-section">
+                <div class="music-section-head">
+                  <h2>Quick picks</h2>
+                </div>
+                <div class="music-quick-grid" id="musicQuickPicks"></div>
+              </section>
 
-              <div class="music-shelf-head music-fresh-head"><h2>Fresh from YouTube Music</h2><span>Music catalog only</span></div>
-              <div class="music-artwork-grid" id="musicHomeShelf"></div>
+              <section class="music-home-section">
+                <div class="music-section-head">
+                  <h2>Made for you</h2>
+                  <button type="button" data-music-query="daily mix">See all</button>
+                </div>
+                <div class="music-scroll-shelf" id="musicMadeShelf"></div>
+              </section>
+
+              <section class="music-home-section" id="musicRecentSection">
+                <div class="music-section-head">
+                  <h2>Recently played</h2>
+                </div>
+                <div class="music-scroll-shelf" id="musicRecentShelf"></div>
+              </section>
+
+              <section class="music-home-section">
+                <div class="music-section-head">
+                  <h2>Moods & moments</h2>
+                </div>
+                <div class="music-mood-grid" id="musicMoodGrid"></div>
+              </section>
+
+              <section class="music-home-section">
+                <div class="music-section-head">
+                  <h2>Popular right now</h2>
+                  <button type="button" data-music-query="top songs">See all</button>
+                </div>
+                <div class="music-scroll-shelf" id="musicPopularShelf"></div>
+              </section>
             </div>
+
             <div class="music-search-view" id="musicSearchView" hidden>
-              <div class="music-results-head"><div><span class="kicker">SEARCH</span><h2 id="musicResultsTitle">Results</h2></div><span id="musicStatus" role="status" aria-live="polite"></span></div>
+              <div class="music-results-head">
+                <div>
+                  <span class="kicker">SEARCH</span>
+                  <h2 id="musicResultsTitle">Results</h2>
+                </div>
+                <span id="musicStatus" role="status" aria-live="polite"></span>
+              </div>
               <div class="music-top-result" id="musicTopResult" hidden></div>
               <div class="music-songs-head" id="musicSongsHead" hidden><h2>Songs</h2></div>
               <div class="music-results" id="musicResults" role="list"></div>
@@ -408,8 +443,11 @@
       <button class="music-player-art-button" id="musicArtworkButton" type="button" aria-label="Open now playing">
         <img id="musicPlayerArt" alt="" />
       </button>
-      <div class="music-player-meta"><b id="musicPlayerTitle">Nothing playing</b><span id="musicPlayerArtist">Arc Music</span></div>
-      <button class="music-like" id="musicLike" type="button" aria-label="Like track">♥</button>
+      <div class="music-player-meta">
+        <b id="musicPlayerTitle">Nothing playing</b>
+        <span id="musicPlayerArtist">Arc Music</span>
+      </div>
+      <button class="music-like" id="musicLike" type="button" aria-label="Like track">♡</button>
     </div>
 
     <div class="music-player-center">
@@ -420,23 +458,54 @@
         <button id="musicNext" type="button" aria-label="Next track"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5v14M6 6l9 6-9 6z"/></svg></button>
         <button id="musicRepeat" type="button" aria-label="Repeat">↻</button>
       </div>
-      <div class="music-progress-row"><span id="musicCurrentTime">0:00</span><input id="musicProgress" type="range" min="0" max="1000" value="0" aria-label="Music playback position" /><span id="musicDuration">0:00</span></div>
+      <div class="music-progress-row">
+        <span id="musicCurrentTime">0:00</span>
+        <input id="musicProgress" type="range" min="0" max="1000" value="0" aria-label="Music playback position" />
+        <span id="musicDuration">0:00</span>
+      </div>
     </div>
 
     <div class="music-player-side">
-      <span class="music-engine-pill" id="musicEnginePill">YT Music</span>
       <button type="button" id="musicLyricsButton" aria-label="Show lyrics">Lyrics</button>
       <button type="button" id="musicSoundButton" aria-label="Open sound settings">Sound</button>
       <input id="musicVolume" type="range" min="0" max="100" step="1" value="90" aria-label="Music volume" />
     </div>
   </section>
 
+  <section class="music-now-screen" id="musicNowScreen" hidden aria-label="Now playing">
+    <button class="music-now-close" id="musicNowClose" type="button" aria-label="Close now playing">×</button>
+    <div class="music-now-screen-inner">
+      <div class="music-now-art-wrap" id="musicMotionArt">
+        <img class="music-now-art-blur" id="musicNowArtBlur" alt="" />
+        <img class="music-now-art" id="musicNowArt" alt="" />
+        <canvas id="musicVisualizer" aria-hidden="true"></canvas>
+      </div>
+      <div class="music-now-copy">
+        <span class="kicker">NOW PLAYING</span>
+        <h2 id="musicNowTitle">Nothing playing</h2>
+        <p id="musicNowArtist">Arc Music</p>
+        <small id="musicNowAlbum"></small>
+        <div class="music-now-actions">
+          <button type="button" id="musicNowLyrics">Lyrics</button>
+          <button type="button" id="musicNowSound">Sound</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <div class="music-drawer-backdrop" id="musicDrawerBackdrop" hidden></div>
 
   <aside class="music-drawer music-lyrics-panel" id="musicLyricsPanel" aria-label="Lyrics" hidden>
+    <div class="music-lyrics-backdrop" id="musicLyricsBackdrop" aria-hidden="true"></div>
     <div class="music-drawer-head">
-      <div><span class="kicker">LYRICS</span><h2 id="musicLyricsTitle">Lyrics</h2></div>
-      <button type="button" class="music-drawer-close" data-close-music-drawer aria-label="Close lyrics">×</button>
+      <div>
+        <span class="kicker">LYRICS</span>
+        <h2 id="musicLyricsTitle">Lyrics</h2>
+      </div>
+      <div class="music-lyrics-head-actions">
+        <span class="music-lyrics-mode" id="musicLyricsMode">Lyrics</span>
+        <button type="button" class="music-drawer-close" data-close-music-drawer aria-label="Close lyrics">×</button>
+      </div>
     </div>
     <div class="music-lyrics-track">
       <img id="musicLyricsArt" alt="" />
@@ -452,11 +521,11 @@
     </div>
 
     <div class="music-sound-status">
-      <span>Engine</span><b id="musicSoundEngine">Automatic</b>
+      <span>Playback</span><b id="musicSoundEngine">Standard</b>
     </div>
 
     <div class="music-sound-section">
-      <div class="music-sound-section-head"><div><b>Equalizer</b><span>6-band Web Audio EQ</span></div></div>
+      <div class="music-sound-section-head"><div><b>Equalizer</b><span>6-band audio shaping</span></div></div>
       <div class="music-eq-presets" id="musicEqPresets">
         <button type="button" data-eq-preset="flat" class="active">Flat</button>
         <button type="button" data-eq-preset="bass">Bass</button>
@@ -484,13 +553,14 @@
         <input id="musicNormalize" type="checkbox" />
       </label>
       <label class="music-feature-row switch-row">
-        <span><b>Motion Artwork</b><small>Depth motion and audio-reactive cover art</small></span>
+        <span><b>Motion Artwork</b><small>Subtle depth and reactive movement</small></span>
         <input id="musicMotion" type="checkbox" checked />
       </label>
     </div>
 
-    <p class="music-sound-note" id="musicSoundNote">Enhanced sound activates when ARC can use the direct YouTube Music audio engine. Playback automatically falls back when needed.</p>
+    <p class="music-sound-note" id="musicSoundNote">Advanced audio processing turns on automatically when the active playback path supports it.</p>
   </aside>
+
   <div class="mobile-backdrop" id="mobileBackdrop"></div>
   <script src="app.js"></script>
 </body>
