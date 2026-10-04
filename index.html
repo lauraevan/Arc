@@ -297,42 +297,47 @@
       <section class="view music-view" id="view-music">
         <div class="music-shell">
           <aside class="music-side">
-            <div class="music-side-brand">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>
-              <b>Arc Music</b>
+            <div class="music-side-top">
+              <div class="music-side-brand">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>
+                <b>Arc Music</b>
+              </div>
+
+              <nav class="music-side-nav" aria-label="Music navigation">
+                <button class="active" type="button" data-music-tab="home">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5V20h-6v-5H9v5H3z"/></svg>
+                  <span>Home</span>
+                </button>
+                <button type="button" data-music-tab="search">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4.2-4.2"/></svg>
+                  <span>Search</span>
+                </button>
+              </nav>
             </div>
 
-            <nav class="music-side-nav" aria-label="Music navigation">
-              <button class="active" type="button" data-music-tab="home">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5V20h-6v-5H9v5H3z"/></svg>
-                <span>Home</span>
-              </button>
-              <button type="button" data-music-tab="search">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4.2-4.2"/></svg>
-                <span>Search</span>
-              </button>
-            </nav>
+            <div class="music-library-panel">
+              <div class="music-library-head">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h3v14H4zM10 5h3v14h-3zM16 7l4-2v12l-4 2z"/></svg>
+                <span>Your Library</span>
+              </div>
 
-            <div class="music-library-head">
-              <span>Your Library</span>
+              <div class="music-side-section">
+                <button type="button" data-music-query="liked songs">
+                  <span class="music-side-cover liked">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 20-1.4-1.2C5.6 14.4 2.5 11.6 2.5 8.1A4.6 4.6 0 0 1 7.2 3.5c1.8 0 3.5.8 4.8 2.2a6.3 6.3 0 0 1 4.8-2.2 4.6 4.6 0 0 1 4.7 4.6c0 3.5-3.1 6.3-8.1 10.7z"/></svg>
+                  </span>
+                  <span><b>Liked Songs</b><small>Playlist</small></span>
+                </button>
+                <button type="button" data-music-query="discover mix">
+                  <span class="music-side-cover mix">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.5"/></svg>
+                  </span>
+                  <span><b>Arc Mix</b><small>Made for you</small></span>
+                </button>
+              </div>
+
+              <div class="music-side-recents" id="musicSidebarHistory"></div>
             </div>
-
-            <div class="music-side-section">
-              <button type="button" data-music-query="liked songs">
-                <span class="music-side-cover liked">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 20-1.4-1.2C5.6 14.4 2.5 11.6 2.5 8.1A4.6 4.6 0 0 1 7.2 3.5c1.8 0 3.5.8 4.8 2.2a6.3 6.3 0 0 1 4.8-2.2 4.6 4.6 0 0 1 4.7 4.6c0 3.5-3.1 6.3-8.1 10.7z"/></svg>
-                </span>
-                <span><b>Liked Songs</b><small>Playlist</small></span>
-              </button>
-              <button type="button" data-music-query="discover mix">
-                <span class="music-side-cover mix">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.5"/></svg>
-                </span>
-                <span><b>Arc Mix</b><small>Made for you</small></span>
-              </button>
-            </div>
-
-            <div class="music-side-recents" id="musicSidebarHistory"></div>
           </aside>
 
           <div class="music-stage">
