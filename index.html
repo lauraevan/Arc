@@ -444,8 +444,30 @@
           <button type="button" data-manga-filter="saved">Saved</button>
         </div>
 
-        <section class="manga-art-showcase" aria-label="Featured manga artwork">
-          <div class="manga-art-rail" id="mangaArtRail"></div>
+        <section class="manga-editorial" aria-label="Manga discovery">
+          <div class="manga-editorial-main" id="mangaEditorialMain"></div>
+          <div class="manga-editorial-stack" id="mangaEditorialStack"></div>
+        </section>
+
+        <section class="manga-ranking-section">
+          <div class="manga-section-head">
+            <div><span>THIS WEEK</span><h2>Top 10</h2></div>
+          </div>
+          <div class="manga-ranking-row" id="mangaRanking"></div>
+        </section>
+
+        <section class="manga-genres">
+          <div class="manga-section-head">
+            <div><span>EXPLORE</span><h2>Browse by mood</h2></div>
+          </div>
+          <div class="manga-genre-grid">
+            <button type="button" data-manga-query="action">Action</button>
+            <button type="button" data-manga-query="romance">Romance</button>
+            <button type="button" data-manga-query="fantasy">Fantasy</button>
+            <button type="button" data-manga-query="horror">Horror</button>
+            <button type="button" data-manga-query="sports">Sports</button>
+            <button type="button" data-manga-query="slice of life">Slice of life</button>
+          </div>
         </section>
 
         <div class="manga-search-results" id="mangaSearchResults" hidden>
