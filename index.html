@@ -142,11 +142,43 @@
         <button id="loadMore" class="load-more" hidden>Show more</button>
       </section>
 
-      <section class="view simple-view" id="view-cloud">
-        <span class="kicker">ARC CLOUD</span>
-        <h1>Cloud gaming</h1>
-        <p>Arc Cloud plugs into the same clean interface. The launcher and session controls will live here.</p>
-        <button class="primary">Coming next</button>
+      <section class="view cloud-view" id="view-cloud">
+        <div class="cloud-head">
+          <div class="cloud-head-copy">
+            <div class="cloud-title-row">
+              <span class="kicker">ARC CLOUD</span>
+              <span class="cloud-status" id="cloudApiStatus"><i></i> Connecting</span>
+            </div>
+            <h1>Play from the cloud.</h1>
+            <p>Launch full PC games in your browser. No install, no local hardware, just pick a game and start.</p>
+          </div>
+          <div class="cloud-search-wrap">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <input id="cloudSearch" autocomplete="off" placeholder="Search cloud games" />
+          </div>
+        </div>
+
+        <div class="cloud-spotlight" id="cloudSpotlight">
+          <div class="cloud-spotlight-bg" id="cloudSpotlightBg"></div>
+          <div class="cloud-spotlight-scrim"></div>
+          <div class="cloud-spotlight-copy">
+            <span class="cloud-spotlight-tag">FEATURED ON ARC CLOUD</span>
+            <h2 id="cloudSpotlightTitle">Loading Arc Cloud</h2>
+            <p id="cloudSpotlightDesc">Connecting to the Arc API…</p>
+            <button class="primary" id="cloudSpotlightPlay" disabled>Play now</button>
+          </div>
+        </div>
+
+        <div class="cloud-library-head">
+          <div>
+            <span class="kicker">LIBRARY</span>
+            <h2>Cloud games</h2>
+          </div>
+          <span class="cloud-count" id="cloudGameCount">Loading…</span>
+        </div>
+
+        <div class="cloud-tags" id="cloudTags"></div>
+        <div class="cloud-grid" id="cloudGrid"></div>
       </section>
 
       <section class="view simple-view" id="view-watch">
