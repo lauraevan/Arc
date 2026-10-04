@@ -715,7 +715,7 @@ function buildMediaArtworkStrip(item,host){
   });
   host.append(section);
 }
-function buildMediaRecommendations(item,host){
+function buildMediaRecommendations(item,host,type='movie'){
   const recs=[
     ...(item?.recommendations?.results||[]),
     ...(item?.similar?.results||[])
@@ -725,7 +725,7 @@ function buildMediaRecommendations(item,host){
   section.className='media-detail-section';
   section.innerHTML='<div class="media-detail-section-head"><span>MORE LIKE THIS</span><h3>Keep watching</h3></div><div class="media-row media-detail-recs"></div>';
   const row=$('.media-detail-recs',section);
-  recs.forEach(x=>row.append(mediaCard(x,mediaType(x),'landscape')));
+  recs.forEach(x=>row.append(mediaCard(x,type,'landscape')));
   host.append(section);
 }
 async function openMediaDetails(type,id){
@@ -830,7 +830,7 @@ async function openMediaDetails(type,id){
 
     const extra=$('#mediaDetailsExtra',modal);
     buildMediaArtworkStrip(item,extra);
-    buildMediaRecommendations(item,extra);
+    buildMediaRecommendations(item,extra,type);
   }catch(err){
     modal.innerHTML=`<button class="media-details-close" aria-label="Close">×</button><div class="media-details-loading">${escapeHtml(err.message||'Could not load title.')}</div>`;
     $('.media-details-close',modal).onclick=()=>modal.remove();
