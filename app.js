@@ -3,6 +3,7 @@ const STASH_BASE='https://raw.githack.com/lauraevan/Game-Stash/main/';
 const STASH_RAW='https://raw.githubusercontent.com/lauraevan/Game-Stash/main/';
 const CLOUD_API='https://stratus-api-ceav.onrender.com';
 const MEDIA_API=CLOUD_API;
+const MEDIA_PLAYER_ORIGIN='https://arc-media.onrender.com';
 const SCRAMJET_ORIGIN='https://scramjet-v2-prod.onrender.com';
 const state={games:[],filtered:[],visible:60,view:'home',heroItems:[],heroIndex:0,heroTimer:null};
 const cloudState={games:[],filtered:[],tag:'All',featured:null,token:null,tokenExpires:0,loading:false,active:null,pingTimer:null};
@@ -722,7 +723,7 @@ async function playMedia(opts){
   frame.allow='autoplay; fullscreen; picture-in-picture';
   frame.allowFullscreen=true;
   frame.referrerPolicy='no-referrer';
-  frame.src=`${MEDIA_API}/media/v1/player?${qs}`;
+  frame.src=`${MEDIA_PLAYER_ORIGIN}/api/player?${qs}`;
   $('.media-player-stage',shell).append(frame);
   document.body.append(shell);
 }
