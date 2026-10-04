@@ -716,6 +716,8 @@ async function playMedia(opts){
   $('.media-player-bar b',shell).textContent=opts.title||'Arc';
   $('.media-player-bar button',shell).onclick=()=>shell.remove();
   const qs=new URLSearchParams({type:opts.type,id:String(opts.id)});
+  if(opts.title)qs.set('title',opts.title);
+  if(opts.year)qs.set('year',String(opts.year));
   if(opts.season)qs.set('season',String(opts.season));
   if(opts.episode)qs.set('episode',String(opts.episode));
   const frame=document.createElement('iframe');
