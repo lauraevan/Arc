@@ -711,47 +711,20 @@ function mediaServerRank(server){
 async function playMedia(opts){
   $('#mediaPlayer')?.remove();
   const shell=document.createElement('div');shell.className='media-player';shell.id='mediaPlayer';
-  shell.innerHTML=`<div class="media-player-bar"><div><b></b><small id="mediaPlayerStatus">Finding a stream…</small></div><button aria-label="Close">×</button></div><div class="media-player-stage"><div class="media-player-loading">Connecting to Arc media…</div></div>`;
+  shell.innerHTML=`<div class="media-player-bar"><div><b></b><small id="mediaPlayerStatus">Arc player</small></div><button aria-label="Close">×</button></div><div class="media-player-stage"></div>`;
   $('.media-player-bar b',shell).textContent=opts.title||'Arc';
-  $('.media-player-bar button',shell).onclick=()=>{const v=$('video',shell);resetMediaVideo(v);shell.remove()};
+  $('.media-player-bar button',shell).onclick=()=>shell.remove();
+  const qs=new URLSearchParams({type:opts.type,id:String(opts.id)});
+  if(opts.season)qs.set('season',String(opts.season));
+  if(opts.episode)qs.set('episode',String(opts.episode));
+  const frame=document.createElement('iframe');
+  frame.className='media-frame';
+  frame.allow='autoplay; fullscreen; picture-in-picture';
+  frame.allowFullscreen=true;
+  frame.referrerPolicy='no-referrer';
+  frame.src=`${MEDIA_API}/media/v1/player?${qs}`;
+  $('.media-player-stage',shell).append(frame);
   document.body.append(shell);
-  try{
-    const qs=new URLSearchParams({type:opts.type,id:String(opts.id)});
-    if(opts.season)qs.set('season',String(opts.season));if(opts.episode)qs.set('episode',String(opts.episode));
-    if(opts.title)qs.set('title',opts.title);if(opts.year)qs.set('year',String(opts.year));if(opts.imdbId)qs.set('imdb_id',opts.imdbId);
-    const res=await fetch(`${MEDIA_API}/media/v1/streams?${qs}`,{cache:'no-store'});
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok)throw new Error(data.detail||data.error||'Stream lookup failed');
-    const servers=[...(data.servers||[])].sort((a,b)=>mediaServerRank(a)-mediaServerRank(b));
-    if(!servers.length)throw new Error('No playable stream was found for this title');
-    const stage=$('.media-player-stage',shell);const video=document.createElement('video');
-    video.className='media-video';video.controls=true;video.autoplay=true;video.playsInline=true;
-    stage.replaceChildren(video);
-
-    let active=null;
-    let lastError=null;
-    for(let i=0;i<servers.length;i++){
-      if(!document.body.contains(shell))return;
-      const server=servers[i];
-      const status=$('#mediaPlayerStatus',shell);
-      if(status)status.textContent=`Trying ${server.name||server.provider||`source ${i+1}`}${server.quality?` · ${server.quality}`:''}`;
-      try{
-        await attachMediaSource(video,server);
-        active=server;
-        break;
-      }catch(error){
-        lastError=error;
-        resetMediaVideo(video);
-      }
-    }
-    if(!active)throw lastError||new Error('All available sources failed');
-    const status=$('#mediaPlayerStatus',shell);
-    if(status)status.textContent=[active.name,active.quality].filter(Boolean).join(' · ')||'Playing';
-    video.play().catch(()=>{});
-  }catch(err){
-    const stage=$('.media-player-stage',shell);if(stage)stage.innerHTML=`<div class="media-player-loading"><b>Couldn’t start playback</b><span>${escapeHtml(err.message||'Try another title.')}</span></div>`;
-    const status=$('#mediaPlayerStatus',shell);if(status)status.textContent='Playback unavailable';
-  }
 }
 function setupMedia(){
   $('#mediaSearchForm')?.addEventListener('submit',e=>{e.preventDefault();searchMedia($('#mediaSearchInput')?.value||'')});
