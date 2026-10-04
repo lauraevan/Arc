@@ -789,3 +789,10 @@ body.wallpaper-theme .hero{border-color:color-mix(in srgb,var(--line) 70%,transp
 @media(max-width:420px){
   .themes-view .theme-grid{grid-template-columns:1fr 1fr}
 }
+
+body.wallpaper-static .theme-wallpaper-shade{
+  opacity:1;
+  background:
+    linear-gradient(rgba(0,0,0,var(--wallpaper-dim,.54)),rgba(0,0,0,var(--wallpaper-dim,.54))),
+    var(--wallpaper-image) center center / cover no-repeat fixed;
+}
