@@ -311,3 +311,168 @@ body{background:#080808}
   .hero h1{font-size:42px}
   .hero-logo{width:132px;top:24%}
 }
+
+
+/* ARC CLOUD */
+.cloud-view{padding-top:32px}
+.cloud-head{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:28px;
+  margin:2px 0 24px;
+}
+.cloud-head-copy{max-width:700px}
+.cloud-title-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.cloud-head h1{font-size:clamp(40px,5vw,64px);line-height:.96;letter-spacing:-.055em;margin:0 0 14px}
+.cloud-head p{max-width:650px;margin:0;color:#8d8d8d;font-size:14px;line-height:1.65}
+.cloud-status{
+  display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;
+  border:1px solid #252525;background:#0f0f0f;border-radius:999px;
+  color:#6f6f6f;font-size:9px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;
+}
+.cloud-status i{width:5px;height:5px;border-radius:50%;background:#666}
+.cloud-status.online{color:#8b987b}
+.cloud-status.online i{background:#8fa173}
+.cloud-status.offline{color:#a27777}
+.cloud-status.offline i{background:#a35f5f}
+.cloud-search-wrap{
+  width:min(320px,32vw);height:42px;display:flex;align-items:center;gap:9px;
+  border:1px solid #222;background:#0f0f0f;border-radius:10px;padding:0 12px;flex:0 0 auto;
+}
+.cloud-search-wrap svg{width:18px;color:#666}
+.cloud-search-wrap input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#fff}
+.cloud-search-wrap input::placeholder{color:#5d5d5d}
+.cloud-spotlight{
+  min-height:370px;position:relative;overflow:hidden;border:1px solid #222;border-radius:18px;
+  display:flex;align-items:flex-end;padding:34px;background:#0d0d0d;isolation:isolate;
+}
+.cloud-spotlight-bg{
+  position:absolute;inset:0;z-index:-3;background-position:center 35%;background-size:cover;
+  transform:scale(1.01);
+}
+.cloud-spotlight-scrim{
+  position:absolute;inset:0;z-index:-2;
+  background:
+    linear-gradient(90deg,rgba(6,6,6,.96) 0%,rgba(6,6,6,.78) 36%,rgba(6,6,6,.25) 66%,rgba(6,6,6,.06) 100%),
+    linear-gradient(0deg,rgba(6,6,6,.54) 0%,transparent 52%);
+}
+.cloud-spotlight-copy{width:min(570px,56%)}
+.cloud-spotlight-tag{font-size:9px;font-weight:800;letter-spacing:.14em;color:#b7b7b7}
+.cloud-spotlight h2{
+  margin:9px 0 12px;font-size:clamp(32px,4vw,52px);line-height:1;letter-spacing:-.05em;
+}
+.cloud-spotlight p{
+  margin:0 0 20px;color:#aaa;font-size:13px;line-height:1.6;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+}
+.cloud-library-head{
+  display:flex;align-items:flex-end;justify-content:space-between;margin:30px 2px 14px;
+}
+.cloud-library-head h2{margin:5px 0 0;font-size:24px;letter-spacing:-.035em}
+.cloud-count{font-size:11px;color:#656565}
+.cloud-tags{
+  display:flex;gap:7px;overflow-x:auto;padding:0 0 14px;scrollbar-width:none;
+}
+.cloud-tags::-webkit-scrollbar{display:none}
+.cloud-tag{
+  flex:0 0 auto;height:32px;padding:0 12px;border-radius:999px;border:1px solid #232323;
+  background:#0e0e0e;color:#777;font-size:11px;cursor:pointer;
+}
+.cloud-tag:hover{color:#c6c6c6;border-color:#303030}
+.cloud-tag.active{background:#f0781b;color:#170b03;border-color:#f0781b;font-weight:760}
+.cloud-grid{
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px 12px;
+}
+.cloud-game-card{
+  border:0;background:transparent;padding:0;text-align:left;min-width:0;color:#fff;cursor:pointer;
+}
+.cloud-game-art{
+  position:relative;aspect-ratio:16/10;overflow:hidden;border:1px solid #202020;
+  border-radius:11px;background:#101010;
+}
+.cloud-game-art img{
+  width:100%;height:100%;object-fit:cover;display:block;transition:transform var(--ease),opacity var(--ease);
+}
+.cloud-game-card:hover .cloud-game-art{border-color:#303030}
+.cloud-game-card:hover .cloud-game-art img{transform:scale(1.025)}
+.cloud-play-badge{
+  position:absolute;right:9px;bottom:9px;width:32px;height:32px;border-radius:50%;
+  display:grid;place-items:center;background:rgba(10,10,10,.82);border:1px solid rgba(255,255,255,.18);
+  opacity:0;transform:translateY(3px);transition:opacity var(--ease),transform var(--ease);
+  backdrop-filter:blur(8px);
+}
+.cloud-play-badge svg{width:16px;height:16px}
+.cloud-game-card:hover .cloud-play-badge{opacity:1;transform:none}
+.cloud-game-meta{padding:9px 2px 0}
+.cloud-game-name{
+  font-size:13px;font-weight:720;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.cloud-game-tags{
+  margin-top:4px;color:#626262;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.cloud-empty{
+  grid-column:1/-1;min-height:190px;border:1px solid #202020;border-radius:14px;background:#0d0d0d;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;
+}
+.cloud-empty b{font-size:15px}
+.cloud-empty span{font-size:12px;color:#6d6d6d;margin:7px 0 14px}
+.cloud-session{
+  position:fixed;inset:0;z-index:200;background:#050505;display:flex;flex-direction:column;
+}
+.cloud-session-bar{
+  height:58px;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:0 14px 0 16px;background:#090909;border-bottom:1px solid #202020;
+}
+.cloud-session-game{display:flex;align-items:center;gap:10px;min-width:0}
+.cloud-session-game>div{display:flex;flex-direction:column;min-width:0}
+.cloud-session-game b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cloud-session-game small{margin-top:2px;font-size:10px;color:#676767}
+.cloud-session-dot{width:7px;height:7px;border-radius:50%;background:#f0781b;flex:0 0 auto}
+.cloud-session-tools{display:flex;align-items:center;gap:9px}
+.cloud-time{
+  height:30px;display:grid;place-items:center;padding:0 10px;border:1px solid #252525;border-radius:8px;
+  color:#838383;font-size:11px;font-variant-numeric:tabular-nums;
+}
+.cloud-session-close{
+  width:32px;height:32px;border:1px solid #282828;background:#111;border-radius:8px;
+  color:#aaa;font-size:19px;line-height:1;cursor:pointer;
+}
+.cloud-session-close:hover{background:#171717;color:#fff}
+.cloud-stage{flex:1;min-height:0;position:relative;background:#020202}
+.cloud-frame{width:100%;height:100%;border:0;display:block;background:#000}
+.cloud-loader{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;
+  text-align:center;padding:30px;background:#080808;
+}
+.cloud-loader img{width:72px;height:72px;object-fit:contain;margin-bottom:18px}
+.cloud-loader b{font-size:18px;letter-spacing:-.025em}
+.cloud-loader>span{font-size:12px;color:#6e6e6e;margin-top:7px}
+.cloud-progress{
+  width:min(300px,70vw);height:3px;background:#191919;border-radius:999px;overflow:hidden;margin-top:20px;
+}
+.cloud-progress i{display:block;width:8%;height:100%;background:#f0781b;border-radius:inherit;transition:width 350ms ease}
+.cloud-error-actions{margin-top:18px}
+@media(max-width:1250px){
+  .cloud-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media(max-width:980px){
+  .cloud-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .cloud-spotlight-copy{width:68%}
+}
+@media(max-width:700px){
+  .cloud-view{padding-top:22px}
+  .cloud-head{align-items:stretch;flex-direction:column;gap:16px}
+  .cloud-head h1{font-size:43px}
+  .cloud-search-wrap{width:100%}
+  .cloud-spotlight{min-height:420px;padding:24px;align-items:flex-end}
+  .cloud-spotlight-scrim{
+    background:linear-gradient(0deg,rgba(6,6,6,.96) 0%,rgba(6,6,6,.68) 48%,rgba(6,6,6,.18) 100%);
+  }
+  .cloud-spotlight-copy{width:100%}
+  .cloud-spotlight h2{font-size:37px}
+  .cloud-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 9px}
+  .cloud-play-badge{opacity:1;transform:none;width:29px;height:29px}
+  .cloud-session-bar{height:54px;padding-inline:11px}
+  .cloud-time{display:none}
+}
+@media(max-width:430px){
+  .cloud-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
