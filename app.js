@@ -1,4 +1,4 @@
-const GAME_DATA='https://raw.githubusercontent.com/lauraevan/Game-Stash/main/games.json';
+const GAME_DATA='games-catalog.json';
 const STASH_BASE='https://raw.githack.com/lauraevan/Game-Stash/main/';
 const STASH_RAW='https://raw.githubusercontent.com/lauraevan/Game-Stash/main/';
 const CLOUD_API='https://stratus-api-ceav.onrender.com';
