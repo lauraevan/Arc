@@ -796,3 +796,13 @@ body.wallpaper-static .theme-wallpaper-shade{
     linear-gradient(rgba(0,0,0,var(--wallpaper-dim,.54)),rgba(0,0,0,var(--wallpaper-dim,.54))),
     var(--wallpaper-image) center center / cover no-repeat fixed;
 }
+
+
+/* Lighthouse / critical-path optimization */
+#featuredGames{min-height:166px;contain:layout paint}
+.game-card{contain:layout paint style}
+.game-art img{content-visibility:auto}
+.game-sub,.brand-subtitle,.theme-option small,.themes-intro,.theme-group-head span{color:#8b8b8b}
+@media(max-width:700px){
+  #featuredGames{min-height:205px}
+}
