@@ -815,8 +815,8 @@ function setupNavigation(){
     applySidebarState(collapsed);
     localStorage.setItem('arc-sidebar-collapsed',collapsed?'1':'0');
   });
-  $('.nav-item[data-view]').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.view)));
-  $('[data-go]').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.go)));
+  $$('.nav-item[data-view]').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.view)));
+  $$('[data-go]').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.go)));
   $('#menuButton')?.addEventListener('click',()=>document.body.classList.toggle('sidebar-open'));
   $('#mobileBackdrop')?.addEventListener('click',()=>document.body.classList.remove('sidebar-open'));
 }
