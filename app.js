@@ -8,7 +8,7 @@ const MEDIA_PLAYER_ORIGIN='https://arc-media.onrender.com';
 const MUSIC_API=CLOUD_API;
 const MANGA_API=CLOUD_API;
 const SCRAMJET_ORIGIN='https://scramjet-v2-prod.onrender.com';
-const state={games:[],homeGames:HOME_GAMES.slice(),filtered:[],visible:60,view:'home',heroItems:[],heroIndex:0,heroTimer:null,heroArmed:false,featuredTimer:null,libraryLoaded:false,libraryLoading:null};
+const state={games:[],homeGames:HOME_GAMES.slice(),filtered:[],visible:60,view:'home',heroItems:[],heroIndex:0,heroTimer:null,heroArmed:false,featuredTimer:null,featuredRaf:null,libraryLoaded:false,libraryLoading:null};
 const cloudState={games:[],filtered:[],tag:'All',featured:null,token:null,tokenExpires:0,loading:false,active:null,pingTimer:null};
 const webState={target:null,proxyUrl:null};
 const mediaState={loaded:false,loading:false,home:null,featured:null,query:'',hlsPromise:null,heroVideoToken:0};
@@ -67,16 +67,37 @@ function gameCard(game){
 }
 function renderFeatured(){
   const row=$('#featuredGames'); if(!row)return;
+  cancelAnimationFrame(state.featuredRaf);
   row.innerHTML='';
+  row.scrollLeft=0;
+
   const source=state.homeGames.length?state.homeGames:state.games;
-  const items=source.filter(g=>g.featured).slice(0,12);
-  (items.length?items:source.slice(0,12)).forEach(g=>row.append(gameCard(g)));
+  const featured=source.filter(g=>g.featured).slice(0,12);
+  const items=(featured.length?featured:source.slice(0,12));
+  items.forEach(g=>row.append(gameCard(g)));
+
+  if(items.length>1){
+    [...row.children].forEach(card=>{
+      const clone=card.cloneNode(true);
+      clone.dataset.carouselClone='1';
+      clone.tabIndex=-1;
+      clone.setAttribute('aria-hidden','true');
+      clone.addEventListener('click',event=>{
+        event.preventDefault();
+        const index=[...row.children].indexOf(clone)-items.length;
+        const game=items[index];
+        if(game)openGame(game);
+      });
+      row.append(clone);
+    });
+  }
   startFeaturedAutoScroll();
 }
 function startFeaturedAutoScroll(){
+  cancelAnimationFrame(state.featuredRaf);
   clearInterval(state.featuredTimer);
   const row=$('#featuredGames');
-  if(!row||row.children.length<2)return;
+  if(!row||row.children.length<4)return;
 
   if(!row.dataset.autoScrollBound){
     row.dataset.autoScrollBound='1';
@@ -87,24 +108,26 @@ function startFeaturedAutoScroll(){
     row.addEventListener('focusin',()=>setPaused(true));
     row.addEventListener('focusout',()=>setPaused(false));
     row.addEventListener('touchstart',()=>setPaused(true),{passive:true});
-    row.addEventListener('touchend',()=>setTimeout(()=>setPaused(false),1500),{passive:true});
+    row.addEventListener('touchend',()=>setTimeout(()=>setPaused(false),1200),{passive:true});
+    row.addEventListener('wheel',()=>setPaused(true),{passive:true});
   }
 
-  state.featuredTimer=setInterval(()=>{
-    if(row.dataset.autoPaused==='1'||state.view!=='home'||document.hidden||document.body.classList.contains('reduce-motion'))return;
-    const first=row.firstElementChild;
-    if(!first)return;
-    const gap=parseFloat(getComputedStyle(row).columnGap||getComputedStyle(row).gap||'14')||14;
-    const step=first.getBoundingClientRect().width+gap;
-    const max=Math.max(0,row.scrollWidth-row.clientWidth);
-    if(max<8)return;
-    const next=row.scrollLeft+step;
-    if(next>=max-4){
-      row.scrollTo({left:0,behavior:'smooth'});
-    }else{
-      row.scrollBy({left:step,behavior:'smooth'});
+  let last=performance.now();
+  const speed=26;
+  const tick=now=>{
+    const dt=Math.min(48,now-last);
+    last=now;
+
+    if(row.dataset.autoPaused!=='1'&&state.view==='home'&&!document.hidden&&!document.body.classList.contains('reduce-motion')){
+      const loopWidth=row.scrollWidth/2;
+      if(loopWidth>row.clientWidth){
+        row.scrollLeft+=speed*(dt/1000);
+        if(row.scrollLeft>=loopWidth)row.scrollLeft-=loopWidth;
+      }
     }
-  },2800);
+    state.featuredRaf=requestAnimationFrame(tick);
+  };
+  state.featuredRaf=requestAnimationFrame(tick);
 }
 function homeHeroItems(){
   const source=state.homeGames.length?state.homeGames:state.games;
@@ -1043,6 +1066,44 @@ function renderMangaRow(id,items){
   (items||[]).slice(0,20).forEach(item=>host.append(mangaCard(item,items)));
   if(!host.children.length)host.innerHTML='<div class="manga-empty">Nothing here yet.</div>';
 }
+function renderMangaArtwork(popular=[],recent=[]){
+  const collage=$('#mangaHeroCollage');
+  if(collage){
+    collage.innerHTML='';
+    popular.slice(1,6).forEach((item,index)=>{
+      const button=document.createElement('button');
+      button.type='button';
+      button.className='manga-collage-cover manga-collage-'+(index+1);
+      button.setAttribute('aria-label','Open '+mangaTitle(item));
+      const img=document.createElement('img');
+      img.alt='';img.loading='eager';img.decoding='async';img.src=mangaImage(item.image||item.cover);
+      button.append(img);
+      button.onclick=()=>openMangaDetails(item.id,item);
+      collage.append(button);
+    });
+  }
+
+  const rail=$('#mangaArtRail');
+  if(rail){
+    rail.innerHTML='';
+    const seen=new Set();
+    [...popular,...recent].filter(item=>{
+      if(!item?.id||seen.has(item.id))return false;
+      seen.add(item.id);return true;
+    }).slice(0,10).forEach((item,index)=>{
+      const button=document.createElement('button');
+      button.type='button';button.className='manga-art-tile';
+      const img=document.createElement('img');
+      img.alt='';img.loading=index<5?'eager':'lazy';img.decoding='async';img.src=mangaImage(item.image||item.cover);
+      const copy=document.createElement('span');
+      const title=document.createElement('b');title.textContent=mangaTitle(item);
+      const meta=document.createElement('small');meta.textContent=index<5?'Popular pick':'Fresh chapter';
+      copy.append(title,meta);button.append(img,copy);
+      button.onclick=()=>openMangaDetails(item.id,item);
+      rail.append(button);
+    });
+  }
+}
 function renderMangaHero(item){
   mangaState.featured=item||null;
   const title=$('#mangaHeroTitle'),cover=$('#mangaHeroCover'),bg=$('#mangaHeroBackdrop'),open=$('#mangaHeroOpen');
@@ -1113,6 +1174,7 @@ async function loadMangaHome(force=false){
     mangaState.loaded=true;
     mangaState.retry=0;
     renderMangaHero(popular[0]||recent[0]);
+    renderMangaArtwork(popular,recent);
     renderMangaRow('#mangaPopularRow',popular);
     renderMangaRow('#mangaRecentRow',recent);
     renderMangaContinue();
