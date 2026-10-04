@@ -524,56 +524,146 @@ function mediaTitle(item){
 function mediaYear(item){
   return String(item?.release_date||item?.first_air_date||'').slice(0,4);
 }
-function mediaPoster(item){
-  return item?.poster_path?`https://image.tmdb.org/t/p/w500${item.poster_path}`:'';
+function mediaPoster(item,size='w500'){
+  return item?.poster_path?`https://image.tmdb.org/t/p/${size}${item.poster_path}`:'';
 }
-function mediaBackdrop(item){
-  return item?.backdrop_path?`https://image.tmdb.org/t/p/original${item.backdrop_path}`:mediaPoster(item);
+function mediaBackdrop(item,size='original'){
+  return item?.backdrop_path?`https://image.tmdb.org/t/p/${size}${item.backdrop_path}`:mediaPoster(item,'w780');
 }
-function mediaCard(item,forcedType=''){
+function mediaRating(item){
+  const rating=Number(item?.vote_average||0);
+  return rating>0?rating.toFixed(1):'';
+}
+function mediaGenreNames(item){
+  return (item?.genres||[]).map(g=>g?.name).filter(Boolean).slice(0,3);
+}
+function mediaTrailer(item){
+  const videos=Array.isArray(item?.videos?.results)?item.videos.results:[];
+  const youtube=videos.filter(v=>v?.site==='YouTube'&&v?.key);
+  return youtube.find(v=>v.official&&v.type==='Trailer')
+    ||youtube.find(v=>v.type==='Trailer')
+    ||youtube.find(v=>v.official&&v.type==='Teaser')
+    ||youtube.find(v=>v.type==='Teaser')
+    ||youtube[0]
+    ||null;
+}
+function mediaLogo(item){
+  const logos=Array.isArray(item?.images?.logos)?item.images.logos:[];
+  const logo=logos.find(x=>x.iso_639_1==='en')||logos[0];
+  return logo?.file_path?`https://image.tmdb.org/t/p/w500${logo.file_path}`:'';
+}
+function mediaBackdropGallery(item){
+  return (Array.isArray(item?.images?.backdrops)?item.images.backdrops:[])
+    .filter(x=>x?.file_path)
+    .slice(0,8)
+    .map(x=>`https://image.tmdb.org/t/p/w780${x.file_path}`);
+}
+function openMediaTrailer(video,title='Trailer'){
+  if(!video?.key)return;
+  $('#mediaTrailer')?.remove();
+  const shell=document.createElement('div');
+  shell.className='media-trailer-modal';
+  shell.id='mediaTrailer';
+  shell.innerHTML=`
+    <div class="media-trailer-shell">
+      <div class="media-trailer-head">
+        <div><span>OFFICIAL TRAILER</span><b></b></div>
+        <button type="button" aria-label="Close trailer">×</button>
+      </div>
+      <div class="media-trailer-frame-wrap">
+        <iframe allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+      </div>
+    </div>`;
+  $('.media-trailer-head b',shell).textContent=title;
+  const close=()=>shell.remove();
+  $('.media-trailer-head button',shell).onclick=close;
+  shell.addEventListener('click',e=>{if(e.target===shell)close()});
+  const frame=$('iframe',shell);
+  frame.src=`https://www.youtube-nocookie.com/embed/${encodeURIComponent(video.key)}?autoplay=1&rel=0&modestbranding=1`;
+  document.body.append(shell);
+}
+function mediaCard(item,forcedType='',layout='poster'){
   const type=mediaType(item,forcedType);
   const card=document.createElement('button');
-  card.type='button';card.className='media-card';
+  card.type='button';
+  card.className='media-card '+(layout==='landscape'?'media-card-landscape':'media-card-poster');
   card.setAttribute('aria-label','Open '+mediaTitle(item));
-  const poster=mediaPoster(item);
-  card.innerHTML=`<div class="media-poster">${poster?`<img loading="lazy" alt="" src="${poster}">`:'<div class="media-poster-fallback">ARC</div>'}</div><div class="media-card-copy"><b></b><span></span></div>`;
+  const image=layout==='landscape'?mediaBackdrop(item,'w780'):mediaPoster(item,'w500');
+  const rating=mediaRating(item);
+  card.innerHTML=`
+    <div class="media-card-art">
+      ${image?`<img loading="lazy" decoding="async" alt="" src="${image}">`:'<div class="media-poster-fallback">ARC</div>'}
+      <div class="media-card-overlay">
+        <span class="media-card-play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 6 9 6-9 6z"/></svg></span>
+      </div>
+      ${rating?`<span class="media-rating-badge">★ ${rating}</span>`:''}
+    </div>
+    <div class="media-card-copy"><b></b><span></span></div>`;
   $('.media-card-copy b',card).textContent=mediaTitle(item);
   $('.media-card-copy span',card).textContent=[type==='tv'?'Series':'Movie',mediaYear(item)].filter(Boolean).join(' · ');
   card.onclick=()=>openMediaDetails(type,item.id);
   return card;
 }
-function renderMediaRow(id,items,forcedType=''){
+function renderMediaRow(id,items,forcedType='',layout='poster'){
   const host=$(id);if(!host)return;
   host.innerHTML='';
-  (items||[]).filter(x=>x?.id&&(forcedType||['movie','tv'].includes(x.media_type))).slice(0,20).forEach(item=>host.append(mediaCard(item,forcedType)));
+  (items||[])
+    .filter(x=>x?.id&&(forcedType||['movie','tv'].includes(x.media_type)))
+    .slice(0,20)
+    .forEach(item=>host.append(mediaCard(item,forcedType,layout)));
   if(!host.children.length)host.innerHTML='<div class="media-empty">Nothing to show right now.</div>';
+}
+async function hydrateMediaHeroTrailer(item){
+  const button=$('#mediaHeroTrailer');
+  if(!button||!item?.id)return;
+  button.disabled=true;
+  button.onclick=null;
+  try{
+    const type=mediaType(item);
+    const res=await fetch(`${MEDIA_API}/media/v1/details/${type}/${item.id}`,{cache:'force-cache'});
+    const details=await res.json().catch(()=>({}));
+    const trailer=mediaTrailer(details);
+    if(trailer){
+      button.disabled=false;
+      button.onclick=()=>openMediaTrailer(trailer,mediaTitle(details));
+    }
+  }catch{}
 }
 function renderMediaHero(item){
   mediaState.featured=item;
-  const bg=$('#mediaHeroBg'),title=$('#mediaHeroTitle'),text=$('#mediaHeroText'),button=$('#mediaHeroPlay');
+  const bg=$('#mediaHeroBg'),title=$('#mediaHeroTitle'),text=$('#mediaHeroText'),meta=$('#mediaHeroMeta'),button=$('#mediaHeroPlay'),label=$('#mediaHeroLabel');
   if(!item)return;
-  if(bg)bg.style.backgroundImage=`url("${String(mediaBackdrop(item)).replace(/"/g,'%22')}")`;
+  if(bg)bg.style.backgroundImage=`url("${String(mediaBackdrop(item,'original')).replace(/"/g,'%22')}")`;
   if(title)title.textContent=mediaTitle(item);
-  if(text)text.textContent=item.overview||'Watch movies and shows through Arc.';
+  if(text)text.textContent=item.overview||'Discover something worth watching tonight.';
+  if(label)label.textContent=mediaType(item)==='tv'?'FEATURED SERIES':'FEATURED FILM';
+  if(meta)meta.textContent=[mediaYear(item),mediaRating(item)?'★ '+mediaRating(item):'',mediaType(item)==='tv'?'Series':'Movie'].filter(Boolean).join('   ');
   if(button){button.disabled=false;button.onclick=()=>openMediaDetails(mediaType(item),item.id)}
+  hydrateMediaHeroTrailer(item);
 }
 async function loadMediaHome(force=false){
   if((mediaState.loaded&&!force)||mediaState.loading)return;
   mediaState.loading=true;
   try{
-    const res=await fetch(`${MEDIA_API}/media/v1/home`,{cache:'no-store'});
+    const res=await fetch(`${MEDIA_API}/media/v1/home`,{cache:'force-cache'});
     const data=await res.json().catch(()=>({}));
     if(!res.ok)throw new Error(data.error||data.detail||`Media catalog failed (${res.status})`);
     mediaState.home=data;mediaState.loaded=true;
     const trending=(data.trending||[]).filter(x=>['movie','tv'].includes(x.media_type));
-    renderMediaHero(trending.find(x=>x.backdrop_path)||trending[0]||data.popular_movies?.[0]);
-    renderMediaRow('#mediaTrending',trending);
-    renderMediaRow('#mediaMovies',data.popular_movies||[],'movie');
-    renderMediaRow('#mediaTv',data.popular_tv||[],'tv');
-    renderMediaRow('#mediaTopRated',[...(data.top_rated_movies||[]).slice(0,10),...(data.top_rated_tv||[]).slice(0,10)].map((x,i)=>({...x,media_type:i<10?'movie':'tv'})));
+    renderMediaHero(trending.find(x=>x.backdrop_path)||data.now_playing?.find(x=>x.backdrop_path)||trending[0]||data.popular_movies?.[0]);
+    renderMediaRow('#mediaTrending',trending,'','landscape');
+    renderMediaRow('#mediaNowPlaying',(data.now_playing||[]).map(x=>({...x,media_type:'movie'})),'movie','poster');
+    renderMediaRow('#mediaMovies',(data.popular_movies||[]).map(x=>({...x,media_type:'movie'})),'movie','poster');
+    renderMediaRow('#mediaTv',(data.popular_tv||[]).map(x=>({...x,media_type:'tv'})),'tv','landscape');
+    renderMediaRow('#mediaUpcoming',(data.upcoming||[]).map(x=>({...x,media_type:'movie'})),'movie','landscape');
+    const topRated=[
+      ...(data.top_rated_movies||[]).slice(0,10).map(x=>({...x,media_type:'movie'})),
+      ...(data.top_rated_tv||[]).slice(0,10).map(x=>({...x,media_type:'tv'}))
+    ];
+    renderMediaRow('#mediaTopRated',topRated);
   }catch(err){
     const hero=$('#mediaHeroText');if(hero)hero.textContent=err.message||'Could not load movies and shows.';
-    ['#mediaTrending','#mediaMovies','#mediaTv','#mediaTopRated'].forEach(id=>{const el=$(id);if(el)el.innerHTML='<div class="media-empty">Media library unavailable. Try again shortly.</div>'});
+    ['#mediaTrending','#mediaNowPlaying','#mediaMovies','#mediaTv','#mediaUpcoming','#mediaTopRated'].forEach(id=>{const el=$(id);if(el)el.innerHTML='<div class="media-empty">Cinema library unavailable. Try again shortly.</div>'});
   }finally{mediaState.loading=false}
 }
 async function searchMedia(query){
@@ -581,7 +671,10 @@ async function searchMedia(query){
   if(!q){clearMediaSearch();return}
   mediaState.query=q;
   const rows=$('#mediaRows'),grid=$('#mediaSearchGrid'),head=$('#mediaResultsHead'),title=$('#mediaResultsTitle');
-  if(rows)rows.hidden=true;if(grid){grid.hidden=false;grid.innerHTML='<div class="media-empty">Searching…</div>'}if(head)head.hidden=false;if(title)title.textContent=`Results for “${q}”`;
+  if(rows)rows.hidden=true;
+  if(grid){grid.hidden=false;grid.innerHTML='<div class="media-empty">Searching the cinema…</div>'}
+  if(head)head.hidden=false;
+  if(title)title.textContent=`Results for “${q}”`;
   try{
     const res=await fetch(`${MEDIA_API}/media/v1/search?q=${encodeURIComponent(q)}`,{cache:'no-store'});
     const data=await res.json().catch(()=>({}));
@@ -595,68 +688,153 @@ function clearMediaSearch(){
   mediaState.query='';
   const input=$('#mediaSearchInput');if(input)input.value='';
   const rows=$('#mediaRows'),grid=$('#mediaSearchGrid'),head=$('#mediaResultsHead');
-  if(rows)rows.hidden=false;if(grid){grid.hidden=true;grid.innerHTML=''}if(head)head.hidden=true;
+  if(rows)rows.hidden=false;
+  if(grid){grid.hidden=true;grid.innerHTML=''}
+  if(head)head.hidden=true;
+}
+function mediaCertification(item,type){
+  if(type==='movie'){
+    const releases=item?.release_dates?.results||[];
+    const us=releases.find(x=>x.iso_3166_1==='US');
+    return us?.release_dates?.map(x=>x.certification).find(Boolean)||'';
+  }
+  const ratings=item?.content_ratings?.results||[];
+  return ratings.find(x=>x.iso_3166_1==='US')?.rating||'';
+}
+function buildMediaArtworkStrip(item,host){
+  const images=mediaBackdropGallery(item);
+  if(!host||!images.length)return;
+  const section=document.createElement('section');
+  section.className='media-detail-section';
+  section.innerHTML='<div class="media-detail-section-head"><span>ARTWORK</span><h3>Scenes & stills</h3></div><div class="media-artwork-strip"></div>';
+  const strip=$('.media-artwork-strip',section);
+  images.forEach(url=>{
+    const img=document.createElement('img');
+    img.loading='lazy';img.decoding='async';img.alt='';img.src=url;
+    strip.append(img);
+  });
+  host.append(section);
+}
+function buildMediaRecommendations(item,host){
+  const recs=[
+    ...(item?.recommendations?.results||[]),
+    ...(item?.similar?.results||[])
+  ].filter((x,index,arr)=>x?.id&&arr.findIndex(y=>y.id===x.id)===index).slice(0,12);
+  if(!host||!recs.length)return;
+  const section=document.createElement('section');
+  section.className='media-detail-section';
+  section.innerHTML='<div class="media-detail-section-head"><span>MORE LIKE THIS</span><h3>Keep watching</h3></div><div class="media-row media-detail-recs"></div>';
+  const row=$('.media-detail-recs',section);
+  recs.forEach(x=>row.append(mediaCard(x,mediaType(x),'landscape')));
+  host.append(section);
 }
 async function openMediaDetails(type,id){
   $('#mediaDetails')?.remove();
-  const modal=document.createElement('div');modal.className='media-details';modal.id='mediaDetails';
-  modal.innerHTML='<div class="media-details-loading">Loading details…</div>';
+  const modal=document.createElement('div');
+  modal.className='media-details';
+  modal.id='mediaDetails';
+  modal.innerHTML='<div class="media-details-loading">Opening cinema…</div>';
   document.body.append(modal);
   try{
-    const res=await fetch(`${MEDIA_API}/media/v1/details/${encodeURIComponent(type)}/${encodeURIComponent(id)}`,{cache:'no-store'});
+    const res=await fetch(`${MEDIA_API}/media/v1/details/${encodeURIComponent(type)}/${encodeURIComponent(id)}`,{cache:'force-cache'});
     const item=await res.json().catch(()=>({}));
     if(!res.ok)throw new Error(item.detail||'Could not load title');
     const backdrop=mediaBackdrop(item);
+    const trailer=mediaTrailer(item);
+    const logo=mediaLogo(item);
+    const genres=mediaGenreNames(item);
+    const certification=mediaCertification(item,type);
+    const cast=(item?.credits?.cast||[]).slice(0,6).map(x=>x.name).filter(Boolean);
     modal.innerHTML=`
       <button class="media-details-close" aria-label="Close">×</button>
       <div class="media-details-art" style="background-image:url('${String(backdrop).replace(/'/g,'%27')}')"></div>
       <div class="media-details-scrim"></div>
-      <div class="media-details-copy">
-        <span class="kicker">${type==='tv'?'SERIES':'MOVIE'}</span>
-        <h2></h2>
-        <div class="media-details-meta"></div>
-        <p></p>
-        <div class="media-episode-controls" id="mediaEpisodeControls" ${type==='tv'?'':'hidden'}>
-          <select id="mediaSeasonSelect" aria-label="Season"></select>
-          <select id="mediaEpisodeSelect" aria-label="Episode"></select>
-        </div>
-        <div class="media-details-actions">
-          <button class="primary" id="mediaPlayNow">Play</button>
-          <button class="secondary" id="mediaCloseDetails">Close</button>
-        </div>
-      </div>`;
+      <main class="media-details-body">
+        <section class="media-details-copy">
+          ${logo?`<img class="media-title-logo" src="${logo}" alt="">`:''}
+          <span class="kicker">${type==='tv'?'SERIES':'MOVIE'}</span>
+          <h2></h2>
+          <div class="media-details-meta"></div>
+          <p></p>
+          <div class="media-detail-cast" id="mediaDetailCast"></div>
+          <div class="media-episode-controls" id="mediaEpisodeControls" ${type==='tv'?'':'hidden'}>
+            <select id="mediaSeasonSelect" aria-label="Season"></select>
+            <select id="mediaEpisodeSelect" aria-label="Episode"></select>
+          </div>
+          <div class="media-details-actions">
+            <button class="primary" id="mediaPlayNow">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6z"/></svg>
+              Play
+            </button>
+            <button class="secondary media-trailer-button" id="mediaTrailerNow" type="button" ${trailer?'':'disabled'}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6z"/></svg>
+              Trailer
+            </button>
+          </div>
+        </section>
+        <div class="media-details-extra" id="mediaDetailsExtra"></div>
+      </main>`;
     $('.media-details-copy h2',modal).textContent=mediaTitle(item);
     $('.media-details-copy p',modal).textContent=item.overview||'No description available.';
     $('.media-details-meta',modal).textContent=[
       mediaYear(item),
-      item.runtime?`${item.runtime} min`:item.number_of_seasons?`${item.number_of_seasons} season${item.number_of_seasons===1?'':'s'}`:'',
-      item.vote_average?`${Number(item.vote_average).toFixed(1)}/10`:''
+      certification,
+      type==='movie'&&item.runtime?`${item.runtime} min`:type==='tv'&&item.number_of_seasons?`${item.number_of_seasons} season${item.number_of_seasons===1?'':'s'}`:'',
+      mediaRating(item)?`★ ${mediaRating(item)}`:'',
+      ...genres
     ].filter(Boolean).join(' · ');
+    const castHost=$('#mediaDetailCast',modal);
+    if(castHost&&cast.length)castHost.textContent='Starring '+cast.join(', ');
     const close=()=>modal.remove();
     $('.media-details-close',modal).onclick=close;
-    $('#mediaCloseDetails',modal).onclick=close;
+    if(trailer)$('#mediaTrailerNow',modal).onclick=()=>openMediaTrailer(trailer,mediaTitle(item));
+
     if(type==='tv'){
       const seasonSelect=$('#mediaSeasonSelect',modal);
       const seasons=(item.seasons||[]).filter(s=>s.season_number>0);
-      seasons.forEach(s=>{const o=document.createElement('option');o.value=s.season_number;o.textContent=s.name||`Season ${s.season_number}`;seasonSelect.append(o)});
-      if(!seasonSelect.children.length){const o=document.createElement('option');o.value='1';o.textContent='Season 1';seasonSelect.append(o)}
+      seasons.forEach(s=>{
+        const o=document.createElement('option');
+        o.value=s.season_number;
+        o.textContent=s.name||`Season ${s.season_number}`;
+        seasonSelect.append(o);
+      });
+      if(!seasonSelect.children.length){
+        const o=document.createElement('option');o.value='1';o.textContent='Season 1';seasonSelect.append(o);
+      }
       const loadEpisodes=async()=>{
         const season=Number(seasonSelect.value)||1;
-        const epSelect=$('#mediaEpisodeSelect',modal);epSelect.innerHTML='<option>Loading…</option>';
+        const epSelect=$('#mediaEpisodeSelect',modal);
+        epSelect.innerHTML='<option>Loading episodes…</option>';
         try{
-          const rr=await fetch(`${MEDIA_API}/media/v1/tv/${id}/season/${season}`);
-          const dd=await rr.json();epSelect.innerHTML='';
-          (dd.episodes||[]).forEach(ep=>{const o=document.createElement('option');o.value=ep.episode_number;o.textContent=`${ep.episode_number}. ${ep.name||'Episode'}`;epSelect.append(o)});
+          const rr=await fetch(`${MEDIA_API}/media/v1/tv/${id}/season/${season}`,{cache:'force-cache'});
+          const dd=await rr.json();
+          epSelect.innerHTML='';
+          (dd.episodes||[]).forEach(ep=>{
+            const o=document.createElement('option');
+            o.value=ep.episode_number;
+            o.textContent=`${ep.episode_number}. ${ep.name||'Episode'}`;
+            epSelect.append(o);
+          });
+          if(!epSelect.children.length)epSelect.innerHTML='<option value="1">Episode 1</option>';
         }catch{epSelect.innerHTML='<option value="1">Episode 1</option>'}
       };
-      seasonSelect.onchange=loadEpisodes;await loadEpisodes();
+      seasonSelect.onchange=loadEpisodes;
+      await loadEpisodes();
     }
+
     $('#mediaPlayNow',modal).onclick=()=>{
       const season=type==='tv'?Number($('#mediaSeasonSelect',modal)?.value)||1:null;
       const episode=type==='tv'?Number($('#mediaEpisodeSelect',modal)?.value)||1:null;
       playMedia({type,id,title:mediaTitle(item),year:Number(mediaYear(item))||undefined,imdbId:item.imdb_id||'',season,episode});
     };
-  }catch(err){modal.innerHTML=`<button class="media-details-close" aria-label="Close">×</button><div class="media-details-loading">${escapeHtml(err.message||'Could not load title.')}</div>`;$('.media-details-close',modal).onclick=()=>modal.remove()}
+
+    const extra=$('#mediaDetailsExtra',modal);
+    buildMediaArtworkStrip(item,extra);
+    buildMediaRecommendations(item,extra);
+  }catch(err){
+    modal.innerHTML=`<button class="media-details-close" aria-label="Close">×</button><div class="media-details-loading">${escapeHtml(err.message||'Could not load title.')}</div>`;
+    $('.media-details-close',modal).onclick=()=>modal.remove();
+  }
 }
 function absoluteMediaUrl(url=''){
   return /^https?:\/\//i.test(url)?url:MEDIA_API+(url.startsWith('/')?url:'/'+url);
@@ -715,38 +893,21 @@ async function attachMediaSource(video,server){
   if(!url)throw new Error('No playable URL returned');
   const isHls=server.type==='hls'||/\.m3u8(?:$|\?)/i.test(url);
   if(isHls&&video.canPlayType('application/vnd.apple.mpegurl')){
-    video.src=url;
-    video.load();
-    await waitForMediaReady(video,12000);
-    return;
+    video.src=url;video.load();await waitForMediaReady(video,12000);return;
   }
   if(isHls){
     const Hls=await ensureHls();
     if(!Hls?.isSupported())throw new Error('HLS playback is not supported here');
-    const hls=new Hls({
-      enableWorker:true,
-      lowLatencyMode:false,
-      manifestLoadingTimeOut:10000,
-      manifestLoadingMaxRetry:2,
-      levelLoadingTimeOut:10000,
-      levelLoadingMaxRetry:2,
-      fragLoadingTimeOut:12000,
-      fragLoadingMaxRetry:3
-    });
+    const hls=new Hls({enableWorker:true,lowLatencyMode:false,manifestLoadingTimeOut:10000,manifestLoadingMaxRetry:2,levelLoadingTimeOut:10000,levelLoadingMaxRetry:2,fragLoadingTimeOut:12000,fragLoadingMaxRetry:3});
     video._arcHls=hls;
     const fatal=new Promise((_,reject)=>{
-      hls.on(Hls.Events.ERROR,(_event,data)=>{
-        if(data?.fatal)reject(new Error(`HLS source failed: ${data.details||data.type||'unknown error'}`));
-      });
+      hls.on(Hls.Events.ERROR,(_event,data)=>{if(data?.fatal)reject(new Error(`HLS source failed: ${data.details||data.type||'unknown error'}`))});
     });
-    hls.loadSource(url);
-    hls.attachMedia(video);
+    hls.loadSource(url);hls.attachMedia(video);
     await Promise.race([waitForMediaReady(video,14000),fatal]);
     return;
   }
-  video.src=url;
-  video.load();
-  await waitForMediaReady(video,12000);
+  video.src=url;video.load();await waitForMediaReady(video,12000);
 }
 function mediaServerRank(server){
   const provider=String(server?.provider||'').toLowerCase();
@@ -787,7 +948,6 @@ function setupMedia(){
   $('#mediaSearchForm')?.addEventListener('submit',e=>{e.preventDefault();searchMedia($('#mediaSearchInput')?.value||'')});
   $('#mediaClearSearch')?.addEventListener('click',clearMediaSearch);
 }
-
 
 function normalizeWebTarget(input=''){
   const value=String(input).trim();
