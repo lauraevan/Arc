@@ -2,8 +2,10 @@ const GAME_DATA='https://raw.githubusercontent.com/lauraevan/Game-Stash/main/gam
 const STASH_BASE='https://raw.githack.com/lauraevan/Game-Stash/main/';
 const STASH_RAW='https://raw.githubusercontent.com/lauraevan/Game-Stash/main/';
 const CLOUD_API='https://stratus-api-ceav.onrender.com';
+const SCRAMJET_ORIGIN='https://scramjet-v2-prod.onrender.com';
 const state={games:[],filtered:[],visible:60,view:'home'};
 const cloudState={games:[],filtered:[],tag:'All',featured:null,token:null,tokenExpires:0,loading:false,active:null,pingTimer:null};
+const webState={target:null,proxyUrl:null};
 
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -406,6 +408,72 @@ function setupCloud(){
   loadCloudCatalog();
 }
 
+
+function normalizeWebTarget(input=''){
+  const value=String(input).trim();
+  if(!value)return null;
+  if(/^https?:\/\//i.test(value))return value;
+  if(/^([a-z0-9-]+\.)+[a-z]{2,}([/:?#].*)?$/i.test(value))return 'https://'+value;
+  return 'https://www.google.com/search?q='+encodeURIComponent(value);
+}
+function scramjetGotoUrl(target){
+  return SCRAMJET_ORIGIN+'/?goto='+encodeURIComponent(target);
+}
+function loadWebTarget(input){
+  const target=normalizeWebTarget(input);
+  if(!target)return;
+  webState.target=target;
+  webState.proxyUrl=scramjetGotoUrl(target);
+  switchView('web');
+  const addr=$('#webAddress');
+  if(addr)addr.value=target;
+  const stage=$('#webStage');
+  if(!stage)return;
+  const frame=document.createElement('iframe');
+  frame.className='web-frame';
+  frame.id='webFrame';
+  frame.src=webState.proxyUrl;
+  frame.allow='fullscreen; autoplay; clipboard-read; clipboard-write; gamepad';
+  frame.referrerPolicy='no-referrer';
+  stage.replaceChildren(frame);
+}
+function showWebHome(){
+  webState.target=null;webState.proxyUrl=null;
+  const addr=$('#webAddress');if(addr)addr.value='';
+  const stage=$('#webStage');if(!stage)return;
+  stage.innerHTML=`<div class="web-start">
+    <img src="assets/arc-logo.svg" alt="" />
+    <h1>Search The Web</h1>
+    <p>Browse through Arc using Scramjet v2.</p>
+    <form class="web-start-search" id="webStartForm">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+      <input id="webStartInput" autocomplete="off" placeholder="Search the web or enter a URL" />
+    </form>
+  </div>`;
+  bindWebStartForm();
+}
+function bindWebStartForm(){
+  $('#webStartForm')?.addEventListener('submit',e=>{
+    e.preventDefault();
+    loadWebTarget($('#webStartInput')?.value||'');
+  });
+}
+function setupWeb(){
+  bindWebStartForm();
+  $('#webAddressForm')?.addEventListener('submit',e=>{
+    e.preventDefault();loadWebTarget($('#webAddress')?.value||'');
+  });
+  $('#webReload')?.addEventListener('click',()=>{
+    const frame=$('#webFrame');if(frame&&webState.proxyUrl)frame.src=webState.proxyUrl;
+  });
+  $('#webBack')?.addEventListener('click',()=>{
+    const frame=$('#webFrame');try{frame?.contentWindow?.history.back()}catch{}
+  });
+  $('#webForward')?.addEventListener('click',()=>{
+    const frame=$('#webFrame');try{frame?.contentWindow?.history.forward()}catch{}
+  });
+  $('#webHome')?.addEventListener('click',showWebHome);
+}
 function setupNavigation(){
   $$('.nav-item[data-view]').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.view)));
   $$('[data-go]').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.go)));
@@ -419,7 +487,8 @@ function setupSearch(){
   const global=$('#globalSearch');
   global?.addEventListener('keydown',e=>{
     if(e.key==='Enter'&&global.value.trim()){
-      switchView('games');const gs=$('#gameSearch');gs.value=global.value;applyGameFilter(true);
+      loadWebTarget(global.value);
+      global.blur();
     }
   });
   document.addEventListener('keydown',e=>{
@@ -446,4 +515,4 @@ function setTheme(name){
   $$('.theme-option').forEach(b=>b.classList.toggle('selected',b.dataset.theme===name));
   localStorage.setItem('arc-theme',name);
 }
-setupNavigation();setupSearch();setupThemes();setupCloud();loadGames();
+setupNavigation();setupSearch();setupThemes();setupWeb();setupCloud();loadGames();
