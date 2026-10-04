@@ -665,6 +665,7 @@ body.sidebar-collapsed .sidebar-bottom{margin-top:auto}
 .theme-wallpaper-video{
   position:fixed;inset:0;width:100%;height:100%;object-fit:cover;
   z-index:0;pointer-events:none;background:#080808;
+  opacity:0;transition:opacity 320ms ease;
 }
 .theme-wallpaper-video[hidden]{display:none}
 .theme-wallpaper-shade{
