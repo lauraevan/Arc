@@ -3270,7 +3270,7 @@ body.music-playing .main{
 }
 .manga-reader-page-image{
   display:block;
-  width:min(calc(760px * var(--manga-zoom)),96vw);
+  width:min(var(--manga-page-width,760px),96vw);
   max-width:none;
   height:auto;
   margin:0 auto;
@@ -3288,7 +3288,7 @@ body.music-playing .main{
 .manga-reader[data-mode="page"] .manga-reader-page-image{
   max-height:calc(100vh - 90px);
   width:auto;
-  max-width:calc(96vw * var(--manga-zoom));
+  max-width:min(var(--manga-page-width,760px),96vw);
   object-fit:contain;
 }
 .manga-reader-loading{
