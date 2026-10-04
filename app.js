@@ -11,7 +11,7 @@ const state={games:[],homeGames:HOME_GAMES.slice(),filtered:[],visible:60,view:'
 const cloudState={games:[],filtered:[],tag:'All',featured:null,token:null,tokenExpires:0,loading:false,active:null,pingTimer:null};
 const webState={target:null,proxyUrl:null};
 const mediaState={loaded:false,loading:false,home:null,featured:null,query:'',hlsPromise:null};
-const musicState={query:'',results:[],queue:[],index:-1,current:null,searchController:null,initialized:false,tab:'home',player:null,playerReady:null,playing:false,shuffle:false,repeat:false,timer:null};
+const musicState={query:'',results:[],queue:[],index:-1,current:null,searchController:null,initialized:false,tab:'home',player:null,playerReady:null,ytPlayerReady:null,playing:false,shuffle:false,repeat:false,timer:null};
 const WALLPAPER_THEMES={
   fireflies:{
     url:'https://www.desktophut.com/files/1654706911-1654706911-pc-fireflies-forest-live-wallpaper.mp4',
@@ -933,28 +933,36 @@ function loadYoutubeApi(){
   return musicState.playerReady;
 }
 async function ensureMusicPlayer(){
-  if(musicState.player)return musicState.player;
   await loadYoutubeApi();
-  musicState.player=new YT.Player('musicYoutubeHost',{
-    width:'1',height:'1',
-    playerVars:{autoplay:0,controls:0,disablekb:1,fs:0,playsinline:1,rel:0,origin:location.origin},
-    events:{
-      onReady:event=>{
-        const volume=Math.max(0,Math.min(100,Number(localStorage.getItem('arc-music-volume')||90)));
-        event.target.setVolume(volume);
-      },
-      onStateChange:event=>{
-        musicState.playing=event.data===YT.PlayerState.PLAYING;
-        if(event.data===YT.PlayerState.PLAYING){musicSetStatus('Playing');startMusicClock()}
-        else if(event.data===YT.PlayerState.BUFFERING)musicSetStatus('Buffering…');
-        else if(event.data===YT.PlayerState.PAUSED)stopMusicClock();
-        else if(event.data===YT.PlayerState.ENDED){stopMusicClock();if(musicState.repeat)playMusicTrack(musicState.index);else stepMusic(1)}
-        updateMusicPlayer();
-      },
-      onError:()=>{musicState.playing=false;musicSetStatus('This track cannot be played');updateMusicPlayer()}
-    }
+  if(musicState.player&&musicState.ytPlayerReady){await musicState.ytPlayerReady;return musicState.player}
+  if(musicState.player)return musicState.player;
+  musicState.ytPlayerReady=new Promise((resolve,reject)=>{
+    let player;
+    player=new YT.Player('musicYoutubeHost',{
+      width:'200',height:'200',
+      playerVars:{autoplay:0,controls:0,disablekb:1,fs:0,playsinline:1,rel:0,origin:location.origin},
+      events:{
+        onReady:event=>{
+          const volume=Math.max(0,Math.min(100,Number(localStorage.getItem('arc-music-volume')||90)));
+          event.target.setVolume(volume);
+          musicState.player=event.target;
+          resolve(event.target);
+        },
+        onStateChange:event=>{
+          musicState.playing=event.data===YT.PlayerState.PLAYING;
+          if(event.data===YT.PlayerState.PLAYING){musicSetStatus('Playing');startMusicClock()}
+          else if(event.data===YT.PlayerState.BUFFERING)musicSetStatus('Buffering…');
+          else if(event.data===YT.PlayerState.PAUSED)stopMusicClock();
+          else if(event.data===YT.PlayerState.ENDED){stopMusicClock();if(musicState.repeat)playMusicTrack(musicState.index);else stepMusic(1)}
+          updateMusicPlayer();
+        },
+        onError:()=>{musicState.playing=false;musicSetStatus('This track cannot be played');updateMusicPlayer()}
+      }
+    });
+    musicState.player=player;
+    setTimeout(()=>reject(new Error('YouTube player startup timed out')),12000);
   });
-  return musicState.player;
+  return musicState.ytPlayerReady;
 }
 function musicThumb(track){return track?musicApiUrl(track.thumbnail):''}
 function renderMusicTopResult(){
