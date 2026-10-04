@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0b0b" />
+  <title>Arc</title>
+  <link rel="preconnect" href="https://raw.githubusercontent.com" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <img src="assets/arc-logo.png" alt="Arc" class="brand-mark" />
+        <span class="brand-name">Arc</span>
+      </div>
+
+      <nav class="nav" aria-label="Arc navigation">
+        <button class="nav-item active" data-view="home" aria-current="page">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.8 12 3l9 7.8V21h-6v-6H9v6H3z"/></svg>
+          <span>Home</span>
+        </button>
+        <button class="nav-item" data-view="games">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 8h9a5.5 5.5 0 0 1 5.2 7.3l-1 3a2.5 2.5 0 0 1-4.2 1l-1.7-1.8H9.2l-1.7 1.8a2.5 2.5 0 0 1-4.2-1l-1-3A5.5 5.5 0 0 1 7.5 8Z"/><path d="M8 12v4M6 14h4M16.5 13.5h.01M19 15.5h.01"/></svg>
+          <span>Games</span>
+        </button>
+        <button class="nav-item" data-view="cloud">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18h10a4 4 0 0 0 .7-7.94A6 6 0 0 0 6.3 8.5 4.8 4.8 0 0 0 7 18Z"/></svg>
+          <span>Cloud</span>
+        </button>
+        <button class="nav-item" data-view="watch">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3Z"/></svg>
+          <span>Movies & Shows</span>
+        </button>
+        <button class="nav-item" data-view="music">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>
+          <span>Music</span>
+        </button>
+        <button class="nav-item" data-view="chat">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/></svg>
+          <span>Chatrooms</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <button class="nav-item" data-view="themes">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-1.1-.9-2-2-2h-2.5A2.5 2.5 0 0 1 14 7.5V5a2 2 0 0 0-2-2Z"/><circle cx="7.5" cy="10" r="1"/><circle cx="9" cy="6.5" r="1"/><circle cx="7.5" cy="14" r="1"/></svg>
+          <span>Themes</span>
+        </button>
+        <button class="nav-item" data-view="settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+          <span>Settings</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="menu-button" id="menuButton" aria-label="Open navigation">
+          <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <div class="search-wrap">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+          <input id="globalSearch" autocomplete="off" placeholder="Search Arc" />
+          <kbd>/</kbd>
+        </div>
+        <button class="profile-button" aria-label="Profile"><span>A</span></button>
+      </header>
+
+      <section class="view active" id="view-home">
+        <div class="hero">
+          <img class="hero-bg" src="assets/arc-halloween-bg.jpg" alt="" />
+          <div class="hero-scrim"></div>
+          <div class="hero-copy">
+            <span class="eyebrow">ARC</span>
+            <h1>Everything you want to play.</h1>
+            <p>Thousands of games, cloud gaming, movies, music, private chatrooms and more.</p>
+            <div class="hero-actions">
+              <button class="primary" data-go="games">Browse games</button>
+              <button class="secondary" data-go="cloud">Open cloud</button>
+            </div>
+          </div>
+          <img class="hero-logo" src="assets/arc-logo.png" alt="" />
+        </div>
+
+        <div class="section-heading">
+          <div>
+            <span class="kicker">PLAY NOW</span>
+            <h2>Featured games</h2>
+          </div>
+          <button class="text-button" data-go="games">View all</button>
+        </div>
+        <div class="game-row" id="featuredGames"></div>
+
+        <div class="feature-strip">
+          <button class="feature-card" data-go="cloud"><span>Cloud gaming</span><small>Play bigger games anywhere</small></button>
+          <button class="feature-card" data-go="watch"><span>Movies & shows</span><small>Keep watching in Arc</small></button>
+          <button class="feature-card" data-go="music"><span>Music</span><small>Fast, lightweight listening</small></button>
+          <button class="feature-card" data-go="chat"><span>Private chatrooms</span><small>Encrypted spaces for friends</small></button>
+        </div>
+      </section>
+
+      <section class="view" id="view-games">
+        <div class="page-head">
+          <div>
+            <span class="kicker">LIBRARY</span>
+            <h1>Games</h1>
+            <p id="gameCount">Loading the Arc library…</p>
+          </div>
+          <div class="games-controls">
+            <input id="gameSearch" placeholder="Search games" autocomplete="off" />
+            <select id="gameFilter" aria-label="Game filter">
+              <option value="all">All games</option>
+              <option value="featured">Featured</option>
+            </select>
+          </div>
+        </div>
+        <div class="game-grid" id="gameGrid"></div>
+        <button id="loadMore" class="load-more" hidden>Show more</button>
+      </section>
+
+      <section class="view simple-view" id="view-cloud">
+        <span class="kicker">ARC CLOUD</span>
+        <h1>Cloud gaming</h1>
+        <p>Arc Cloud plugs into the same clean interface. The launcher and session controls will live here.</p>
+        <button class="primary">Coming next</button>
+      </section>
+
+      <section class="view simple-view" id="view-watch">
+        <span class="kicker">WATCH</span>
+        <h1>Movies & shows</h1>
+        <p>A dedicated media library with continue watching, search and a minimal player.</p>
+        <button class="primary">Coming next</button>
+      </section>
+
+      <section class="view simple-view" id="view-music">
+        <span class="kicker">LISTEN</span>
+        <h1>Music</h1>
+        <p>Fast search, instant playback and a player that stays out of your way.</p>
+        <button class="primary">Coming next</button>
+      </section>
+
+      <section class="view simple-view" id="view-chat">
+        <span class="kicker">PRIVATE</span>
+        <h1>Chatrooms</h1>
+        <p>Create temporary private rooms for friends with a clean encrypted chat experience.</p>
+        <button class="primary">Coming next</button>
+      </section>
+
+      <section class="view simple-view" id="view-themes">
+        <span class="kicker">PERSONALIZE</span>
+        <h1>Themes</h1>
+        <div class="theme-grid">
+          <button class="theme-option selected" data-theme="arc"><span class="theme-swatch arc"></span><b>Arc</b><small>Black + orange</small></button>
+          <button class="theme-option" data-theme="mono"><span class="theme-swatch mono"></span><b>Mono</b><small>Black + white</small></button>
+          <button class="theme-option" data-theme="midnight"><span class="theme-swatch midnight"></span><b>Midnight</b><small>Soft blue-black</small></button>
+        </div>
+      </section>
+
+      <section class="view simple-view" id="view-settings">
+        <span class="kicker">ARC</span>
+        <h1>Settings</h1>
+        <div class="settings-list">
+          <label><span><b>Compact game cards</b><small>Fit more games on screen</small></span><input type="checkbox" id="compactToggle" /></label>
+          <label><span><b>Reduce motion</b><small>Disable interface animations</small></span><input type="checkbox" id="motionToggle" /></label>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="mobile-backdrop" id="mobileBackdrop"></div>
+  <script src="app.js"></script>
+</body>
+</html>
