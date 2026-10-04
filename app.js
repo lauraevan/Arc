@@ -1121,6 +1121,13 @@ function toggleMangaSaved(item){
   else setMangaLibrary([{id:item.id,title:mangaTitle(item),image:item.image||'',altTitles:item.altTitles||[]},...current]);
   return !exists;
 }
+function chapterNumber(chapter){
+  const direct=Number(chapter?.chapter);
+  if(Number.isFinite(direct))return direct;
+  const text=String(chapter?.title||'');
+  const match=text.match(/(?:chapter|ch\.?\s*)?([0-9]+(?:\.[0-9]+)?)/i);
+  return match?Number(match[1]):NaN;
+}
 function chapterLabel(chapter,index){
   return chapter?.title||chapter?.chapter||('Chapter '+(index+1));
 }
@@ -1135,7 +1142,16 @@ async function openMangaDetails(id,seed={}){
     const item=await res.json().catch(()=>({}));
     if(!res.ok)throw new Error(item.error||'Could not load manga');
     mangaState.current=item;
-    mangaState.chapters=Array.isArray(item.chapters)?item.chapters:[];
+    mangaState.chapters=Array.isArray(item.chapters)?item.chapters.slice():[];
+    const numeric=mangaState.chapters.filter(ch=>Number.isFinite(chapterNumber(ch)));
+    if(numeric.length>=Math.max(2,Math.floor(mangaState.chapters.length*.6))){
+      mangaState.chapters.sort((a,b)=>{
+        const an=chapterNumber(a),bn=chapterNumber(b);
+        if(!Number.isFinite(an))return 1;
+        if(!Number.isFinite(bn))return -1;
+        return an-bn;
+      });
+    }
     const image=mangaImage(item.image||seed.image);
     const genres=Array.isArray(item.genres)?item.genres.filter(Boolean):[];
     const saved=mangaLibrary().some(x=>x.id===item.id);
@@ -1181,7 +1197,7 @@ async function openMangaDetails(id,seed={}){
       e.currentTarget.textContent=on?'Saved':'Save';
     };
     $('#mangaReadFirst',shell).onclick=()=>{
-      if(mangaState.chapters.length)openMangaChapter(item,mangaState.chapters,mangaState.chapters.length-1,0);
+      if(mangaState.chapters.length)openMangaChapter(item,mangaState.chapters,0,0);
     };
   }catch(err){
     shell.innerHTML='<button class="manga-details-close" type="button" aria-label="Close">×</button><div class="manga-details-loading">'+escapeHtml(err.message||'Could not load manga.')+'</div>';
