@@ -4,7 +4,7 @@ const STASH_RAW='https://raw.githubusercontent.com/lauraevan/Game-Stash/main/';
 const CLOUD_API='https://stratus-api-ceav.onrender.com';
 const MEDIA_API=CLOUD_API;
 const SCRAMJET_ORIGIN='https://scramjet-v2-prod.onrender.com';
-const state={games:[],filtered:[],visible:60,view:'home'};
+const state={games:[],filtered:[],visible:60,view:'home',heroItems:[],heroIndex:0,heroTimer:null};
 const cloudState={games:[],filtered:[],tag:'All',featured:null,token:null,tokenExpires:0,loading:false,active:null,pingTimer:null};
 const webState={target:null,proxyUrl:null};
 const mediaState={loaded:false,loading:false,home:null,featured:null,query:'',hlsPromise:null};
@@ -41,6 +41,55 @@ function renderFeatured(){
   const items=state.games.filter(g=>g.featured).slice(0,12);
   (items.length?items:state.games.slice(0,12)).forEach(g=>row.append(gameCard(g)));
 }
+function homeHeroItems(){
+  const featured=state.games.filter(g=>g.featured&&g.imageUrl);
+  return (featured.length?featured:state.games.filter(g=>g.imageUrl)).slice(0,8);
+}
+function showHomeHero(index=0){
+  if(!state.heroItems.length)return;
+  state.heroIndex=((index%state.heroItems.length)+state.heroItems.length)%state.heroItems.length;
+  const game=state.heroItems[state.heroIndex];
+  const bg=$('#homeHeroBg'),title=$('#homeHeroTitle'),text=$('#homeHeroText'),eyebrow=$('#homeHeroEyebrow'),play=$('#homeHeroPlay');
+  if(bg){
+    bg.style.opacity='.35';
+    const next=imageUrl(game);
+    const preload=new Image();
+    preload.onload=()=>{if(state.heroItems[state.heroIndex]===game){bg.src=next;requestAnimationFrame(()=>bg.style.opacity='.88')}};
+    preload.onerror=()=>{bg.style.opacity='.5'};
+    preload.src=next;
+  }
+  if(title)title.textContent=game.name||'Featured game';
+  if(text){
+    const credit=game.porter?('Port by '+game.porter+'. '):game.author?('By '+game.author+'. '):'';
+    text.textContent=credit+'Play instantly from the Arc game library.';
+  }
+  if(eyebrow)eyebrow.innerHTML='ARC <i></i> FEATURED GAME';
+  if(play){play.disabled=false;play.onclick=()=>openGame(game)}
+  $('#homeHeroDots .hero-dot').forEach((dot,i)=>dot.classList.toggle('active',i===state.heroIndex));
+}
+function startHomeHero(){
+  state.heroItems=homeHeroItems();
+  if(!state.heroItems.length)return;
+  const dots=$('#homeHeroDots');
+  if(dots){
+    dots.innerHTML='';
+    state.heroItems.forEach((game,i)=>{
+      const dot=document.createElement('button');
+      dot.type='button';dot.className='hero-dot';dot.setAttribute('aria-label',game.name||('Featured game '+(i+1)));
+      dot.onclick=()=>{showHomeHero(i);restartHomeHeroTimer()};
+      dots.append(dot);
+    });
+  }
+  showHomeHero(0);
+  restartHomeHeroTimer();
+}
+function restartHomeHeroTimer(){
+  clearInterval(state.heroTimer);
+  if(state.heroItems.length<2)return;
+  state.heroTimer=setInterval(()=>{
+    if(state.view==='home'&&!document.hidden)showHomeHero(state.heroIndex+1);
+  },7000);
+}
 function applyGameFilter(reset=true){
   const q=($('#gameSearch')?.value||'').trim().toLowerCase();
   const mode=$('#gameFilter')?.value||'all';
@@ -67,7 +116,7 @@ async function loadGames(){
     const data=await res.json();
     state.games=Array.isArray(data)?data:[];
     state.filtered=state.games.slice();
-    renderFeatured();renderGames();
+    renderFeatured();renderGames();startHomeHero();
   }catch(err){
     const count=$('#gameCount');if(count)count.textContent='Could not load the game library.';
     console.error(err);
