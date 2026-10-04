@@ -629,22 +629,6 @@ function renderMediaRow(id,items,forcedType='',layout='poster'){
     .forEach(item=>host.append(mediaCard(item,forcedType,layout)));
   if(!host.children.length)host.innerHTML='<div class="media-empty">Nothing to show right now.</div>';
 }
-async function hydrateMediaHeroTrailer(item){
-  const button=$('#mediaHeroTrailer');
-  if(!button||!item?.id)return;
-  button.disabled=true;
-  button.onclick=null;
-  try{
-    const type=mediaType(item);
-    const res=await fetch(`${MEDIA_API}/media/v1/details/${type}/${item.id}`,{cache:'force-cache'});
-    const details=await res.json().catch(()=>({}));
-    const trailer=mediaTrailer(details);
-    if(trailer){
-      button.disabled=false;
-      button.onclick=()=>openMediaTrailer(trailer,mediaTitle(details));
-    }
-  }catch{}
-}
 function renderMediaHero(item){
   mediaState.featured=item;
   const bg=$('#mediaHeroBg'),title=$('#mediaHeroTitle'),text=$('#mediaHeroText'),meta=$('#mediaHeroMeta'),button=$('#mediaHeroPlay'),label=$('#mediaHeroLabel');
