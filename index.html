@@ -212,11 +212,57 @@
         <div class="cloud-grid" id="cloudGrid"></div>
       </section>
 
-      <section class="view simple-view" id="view-watch">
-        <span class="kicker">WATCH</span>
-        <h1>Movies & shows</h1>
-        <p>A dedicated media library with continue watching, search and a minimal player.</p>
-        <button class="primary">Coming next</button>
+      <section class="view media-view" id="view-watch">
+        <div class="media-head">
+          <div>
+            <span class="kicker">WATCH</span>
+            <h1>Movies & shows</h1>
+            <p>Browse movies and series, search the catalog, and stream through Arc.</p>
+          </div>
+          <form class="media-search" id="mediaSearchForm">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <input id="mediaSearchInput" autocomplete="off" placeholder="Search movies and shows" />
+          </form>
+        </div>
+
+        <section class="media-hero" id="mediaHero">
+          <div class="media-hero-bg" id="mediaHeroBg"></div>
+          <div class="media-hero-scrim"></div>
+          <div class="media-hero-copy">
+            <span class="kicker">FEATURED</span>
+            <h2 id="mediaHeroTitle">Loading…</h2>
+            <p id="mediaHeroText">Loading the Arc media library.</p>
+            <button class="primary" id="mediaHeroPlay" type="button" disabled>View details</button>
+          </div>
+        </section>
+
+        <div class="media-results-head" id="mediaResultsHead" hidden>
+          <div>
+            <span class="kicker">SEARCH</span>
+            <h2 id="mediaResultsTitle">Results</h2>
+          </div>
+          <button class="secondary" id="mediaClearSearch" type="button">Clear</button>
+        </div>
+        <div class="media-grid" id="mediaSearchGrid" hidden></div>
+
+        <div id="mediaRows">
+          <section class="media-row-section">
+            <div class="media-row-title"><h2>Trending now</h2></div>
+            <div class="media-row" id="mediaTrending"></div>
+          </section>
+          <section class="media-row-section">
+            <div class="media-row-title"><h2>Popular movies</h2></div>
+            <div class="media-row" id="mediaMovies"></div>
+          </section>
+          <section class="media-row-section">
+            <div class="media-row-title"><h2>Popular shows</h2></div>
+            <div class="media-row" id="mediaTv"></div>
+          </section>
+          <section class="media-row-section">
+            <div class="media-row-title"><h2>Top rated</h2></div>
+            <div class="media-row" id="mediaTopRated"></div>
+          </section>
+        </div>
       </section>
 
       <section class="view simple-view" id="view-music">
