@@ -66,6 +66,10 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>
             <span>Music</span>
           </button>
+          <button class="nav-item" data-view="manga" title="Manga">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H12v17H6.5A2.5 2.5 0 0 0 4 22Z"/><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H12v17h5.5A2.5 2.5 0 0 1 20 22Z"/></svg>
+            <span>Manga</span>
+          </button>
           <button class="nav-item" data-view="chat" title="Chatrooms">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/></svg>
             <span>Chatrooms</span>
@@ -218,27 +222,34 @@
       </section>
 
       <section class="view media-view" id="view-watch">
-        <div class="media-head">
-          <div>
-            <span class="kicker">WATCH</span>
-            <h1>Movies & shows</h1>
-            <p>Browse movies and series, search the catalog, and stream through Arc.</p>
+        <header class="cinema-toolbar">
+          <div class="cinema-brand">
+            <span class="kicker">ARC CINEMA</span>
+            <h1>Movies & Shows</h1>
           </div>
           <form class="media-search" id="mediaSearchForm">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-            <input id="mediaSearchInput" autocomplete="off" placeholder="Search movies and shows" aria-label="Search movies and shows" />
+            <input id="mediaSearchInput" autocomplete="off" placeholder="Search movies, shows, actors" aria-label="Search movies and shows" />
           </form>
-        </div>
+        </header>
 
         <section class="media-hero" id="mediaHero">
           <div class="media-hero-bg" id="mediaHeroBg"></div>
           <div class="media-hero-scrim"></div>
           <div class="media-hero-copy">
-            <span class="kicker">FEATURED</span>
-            <h2 id="mediaHeroTitle">Loading…</h2>
-            <p id="mediaHeroText">Loading the Arc media library.</p>
-            <button class="primary" id="mediaHeroPlay" type="button" disabled>View details</button>
+            <span class="media-hero-label" id="mediaHeroLabel">FEATURED</span>
+            <h2 id="mediaHeroTitle">Loading cinema…</h2>
+            <div class="media-hero-meta" id="mediaHeroMeta"></div>
+            <p id="mediaHeroText">Loading the Arc cinema library.</p>
+            <div class="media-hero-actions">
+              <button class="primary" id="mediaHeroPlay" type="button" disabled>View details</button>
+              <button class="secondary media-trailer-button" id="mediaHeroTrailer" type="button" disabled>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6z"/></svg>
+                Trailer
+              </button>
+            </div>
           </div>
+          <div class="media-hero-index" id="mediaHeroIndex"></div>
         </section>
 
         <div class="media-results-head" id="mediaResultsHead" hidden>
@@ -250,21 +261,34 @@
         </div>
         <div class="media-grid" id="mediaSearchGrid" hidden></div>
 
-        <div id="mediaRows">
-          <section class="media-row-section">
-            <div class="media-row-title"><h2>Trending now</h2></div>
-            <div class="media-row" id="mediaTrending"></div>
+        <div id="mediaRows" class="cinema-home-rows">
+          <section class="media-row-section media-row-featured">
+            <div class="media-row-title"><div><span>NOW TRENDING</span><h2>What everyone’s watching</h2></div></div>
+            <div class="media-row media-row-landscape" id="mediaTrending"></div>
           </section>
+
           <section class="media-row-section">
-            <div class="media-row-title"><h2>Popular movies</h2></div>
+            <div class="media-row-title"><div><span>IN THEATERS</span><h2>Now playing</h2></div></div>
+            <div class="media-row" id="mediaNowPlaying"></div>
+          </section>
+
+          <section class="media-row-section">
+            <div class="media-row-title"><div><span>FILMS</span><h2>Popular movies</h2></div></div>
             <div class="media-row" id="mediaMovies"></div>
           </section>
+
           <section class="media-row-section">
-            <div class="media-row-title"><h2>Popular shows</h2></div>
-            <div class="media-row" id="mediaTv"></div>
+            <div class="media-row-title"><div><span>SERIES</span><h2>Popular shows</h2></div></div>
+            <div class="media-row media-row-landscape" id="mediaTv"></div>
           </section>
+
           <section class="media-row-section">
-            <div class="media-row-title"><h2>Top rated</h2></div>
+            <div class="media-row-title"><div><span>COMING SOON</span><h2>Upcoming movies</h2></div></div>
+            <div class="media-row media-row-landscape" id="mediaUpcoming"></div>
+          </section>
+
+          <section class="media-row-section">
+            <div class="media-row-title"><div><span>CRITICS & FANS</span><h2>Top rated</h2></div></div>
             <div class="media-row" id="mediaTopRated"></div>
           </section>
         </div>
@@ -383,6 +407,17 @@
           </div>
         </div>
       </section>
+      <section class="view manga-view" id="view-manga">
+        <div class="manga-placeholder">
+          <div class="manga-placeholder-art" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+          <span class="kicker">COMING NEXT</span>
+          <h1>Manga</h1>
+          <p>A dedicated manga reader and library is coming to Arc. We’ll build this one properly next.</p>
+        </div>
+      </section>
+
       <section class="view simple-view" id="view-chat">
         <span class="kicker">PRIVATE</span>
         <h1>Chatrooms</h1>
