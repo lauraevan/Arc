@@ -11,7 +11,7 @@ const state={games:[],homeGames:HOME_GAMES.slice(),filtered:[],visible:60,view:'
 const cloudState={games:[],filtered:[],tag:'All',featured:null,token:null,tokenExpires:0,loading:false,active:null,pingTimer:null};
 const webState={target:null,proxyUrl:null};
 const mediaState={loaded:false,loading:false,home:null,featured:null,query:'',hlsPromise:null};
-const musicState={query:'',results:[],queue:[],index:-1,current:null,searchController:null,initialized:false,tab:'home',player:null,playerReady:null,ytPlayerReady:null,playing:false,shuffle:false,repeat:false,timer:null};
+const musicState={query:'',results:[],queue:[],index:-1,current:null,searchController:null,initialized:false,tab:'home',player:null,playerReady:null,ytPlayerReady:null,playerUsable:false,playing:false,shuffle:false,repeat:false,timer:null};
 const WALLPAPER_THEMES={
   fireflies:{
     url:'https://www.desktophut.com/files/1654706911-1654706911-pc-fireflies-forest-live-wallpaper.mp4',
@@ -946,6 +946,7 @@ async function ensureMusicPlayer(){
           const volume=Math.max(0,Math.min(100,Number(localStorage.getItem('arc-music-volume')||90)));
           event.target.setVolume(volume);
           musicState.player=event.target;
+          musicState.playerUsable=true;
           resolve(event.target);
         },
         onStateChange:event=>{
@@ -1053,6 +1054,9 @@ function stopMusicClock(){if(musicState.timer)clearInterval(musicState.timer);mu
 async function playMusicTrack(index){
   const track=musicState.queue[index];if(!track)return;
   musicState.index=index;musicState.current=track;musicState.playing=false;updateMusicPlayer();renderMusicResults();musicSetStatus('Loading…');
+  if(musicState.playerUsable&&musicState.player){
+    try{musicState.player.loadVideoById(track.id);return}catch(_){ }
+  }
   try{const player=await ensureMusicPlayer();player.loadVideoById(track.id)}catch(_){musicSetStatus('YouTube player unavailable')}
 }
 function stepMusic(delta){
@@ -1063,6 +1067,7 @@ function stepMusic(delta){
 function setupMusic(){
   if(musicState.initialized)return;musicState.initialized=true;
   const form=$('#musicSearchForm'),input=$('#musicSearchInput'),volume=$('#musicVolume');
+  ensureMusicPlayer().catch(()=>{});
   form?.addEventListener('submit',e=>{e.preventDefault();searchMusic(input?.value||'')});
   input?.addEventListener('focus',()=>setMusicTab('search'));
   $$('[data-music-query]').forEach(b=>b.addEventListener('click',()=>searchMusic(b.dataset.musicQuery||'')));
