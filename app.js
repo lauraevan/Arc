@@ -11,7 +11,7 @@ const state={games:[],homeGames:HOME_GAMES.slice(),filtered:[],visible:60,view:'
 const cloudState={games:[],filtered:[],tag:'All',featured:null,token:null,tokenExpires:0,loading:false,active:null,pingTimer:null};
 const webState={target:null,proxyUrl:null};
 const mediaState={loaded:false,loading:false,home:null,featured:null,query:'',hlsPromise:null};
-const musicState={query:'',results:[],queue:[],index:-1,current:null,searchController:null,initialized:false,tab:'home',player:null,playerReady:null,ytPlayerReady:null,playerUsable:false,playing:false,shuffle:false,repeat:false,timer:null,mode:'idle',playToken:0,directAvailable:false,capabilitiesLoaded:false,audioCtx:null,audioSource:null,filters:[],splitter:null,merger:null,crossL:null,crossR:null,delayL:null,delayR:null,compressor:null,analyser:null,master:null,eq:[0,0,0,0,0,0],spatial:0,normalize:false,motion:true,lyricsCache:new Map(),homeTracks:[],homeLoaded:false,vizRaf:0};
+const musicState={query:'',results:[],queue:[],index:-1,current:null,searchController:null,initialized:false,tab:'home',player:null,playerReady:null,ytPlayerReady:null,playerUsable:false,playing:false,shuffle:false,repeat:false,timer:null,mode:'idle',playToken:0,directAvailable:false,capabilitiesLoaded:false,audioCtx:null,audioSource:null,filters:[],splitter:null,merger:null,crossL:null,crossR:null,delayL:null,delayR:null,compressor:null,analyser:null,master:null,eq:[0,0,0,0,0,0],spatial:0,normalize:false,motion:true,lyricsCache:new Map(),lyricsData:null,activeLyric:-1,homeTracks:[],homeMade:[],homeLoaded:false,vizRaf:0};
 const WALLPAPER_THEMES={
   fireflies:{
     url:'https://www.desktophut.com/files/1654706911-1654706911-pc-fireflies-forest-live-wallpaper.mp4',
@@ -922,14 +922,12 @@ function musicThumb(track){
   return track?musicApiUrl(track.thumbnail||track.artwork||''):'';
 }
 function musicEngineLabel(){
-  if(musicState.mode==='direct')return 'YT Music · Enhanced';
-  if(musicState.mode==='youtube')return 'YT Music · Fallback';
-  if(musicState.mode==='direct-loading')return 'Preparing audio';
-  return 'YT Music';
+  if(musicState.mode==='direct')return 'Enhanced';
+  if(musicState.mode==='direct-loading')return 'Preparing';
+  return 'Standard';
 }
 function updateMusicEngineUI(){
   const text=musicEngineLabel();
-  if($('#musicEnginePill'))$('#musicEnginePill').textContent=text;
   if($('#musicSoundEngine'))$('#musicSoundEngine').textContent=text;
   const enhanced=musicState.mode==='direct';
   $('#musicSoundPanel')?.classList.toggle('music-enhanced-ready',enhanced);
@@ -938,9 +936,9 @@ function updateMusicEngineUI(){
   });
   const note=$('#musicSoundNote');
   if(note){
-    if(enhanced)note.textContent='Enhanced audio is active. EQ, Spatial Width and Sound Check are processing this track in real time.';
-    else if(musicState.directAvailable)note.textContent='Enhanced audio is available and will activate when a compatible direct stream starts.';
-    else note.textContent='This host is using the fast YouTube Music fallback player. Lyrics and Motion Artwork still work, but EQ and Spatial Width require the direct audio engine.';
+    if(enhanced)note.textContent='Enhanced audio is active. Equalizer, Spatial Width and Sound Check are processing this track in real time.';
+    else if(musicState.directAvailable)note.textContent='Enhanced audio will turn on automatically when the active track supports it.';
+    else note.textContent='Motion Artwork and lyrics are available now. Equalizer and Spatial Width turn on automatically when enhanced audio is available.';
   }
 }
 async function loadMusicCapabilities(){
@@ -1134,16 +1132,28 @@ function restoreMusicSoundSettings(){
 }
 function updateMusicNowCard(){
   const track=musicState.current;
-  const card=$('#musicNowCard');
-  if(!track||!card)return;
-  card.hidden=false;
+  if(!track)return;
   const art=musicThumb(track);
   $('#musicNowArt').src=art;
   $('#musicNowArtBlur').src=art;
   $('#musicNowTitle').textContent=track.title||'Untitled';
   $('#musicNowArtist').textContent=track.artist||'Unknown artist';
   $('#musicNowAlbum').textContent=track.album||'Single';
+  const screen=$('#musicNowScreen');
+  if(screen)screen.style.setProperty('--music-now-image','url("'+art.replace(/"/g,'%22')+'")');
   $('#musicMotionArt')?.classList.toggle('motion-enabled',!!musicState.motion);
+}
+function openMusicNow(){
+  if(!musicState.current)return;
+  const screen=$('#musicNowScreen');
+  if(!screen)return;
+  updateMusicNowCard();
+  screen.hidden=false;
+  document.body.classList.add('music-now-open');
+}
+function closeMusicNow(){
+  $('#musicNowScreen')?.setAttribute('hidden','');
+  document.body.classList.remove('music-now-open');
 }
 function updateMusicSession(track){
   if(!('mediaSession' in navigator)||!track)return;
@@ -1247,35 +1257,154 @@ async function searchMusic(query){
     if(musicState.searchController===controller)musicState.searchController=null;
   }
 }
-async function loadMusicHomeShelf(){
+function musicHistory(){
+  try{
+    const value=JSON.parse(localStorage.getItem('arc-music-history')||'[]');
+    return Array.isArray(value)?value.filter(x=>x&&x.id).slice(0,20):[];
+  }catch(_){return[]}
+}
+function rememberMusicTrack(track){
+  if(!track?.id)return;
+  const clean={
+    id:track.id,title:track.title||'Untitled',artist:track.artist||'Unknown artist',
+    album:track.album||null,duration:Number(track.duration||0),timestamp:track.timestamp||'',
+    thumbnail:track.thumbnail||track.artwork||'',artwork:track.artwork||track.thumbnail||''
+  };
+  const next=[clean,...musicHistory().filter(x=>x.id!==clean.id)].slice(0,20);
+  localStorage.setItem('arc-music-history',JSON.stringify(next));
+  renderMusicHistory();
+}
+function musicQueueAndPlay(tracks,index){
+  musicState.queue=tracks.slice();
+  musicState.results=tracks.slice();
+  playMusicTrack(index);
+}
+function buildMusicArtCard(track,index,tracks,compact=false){
+  const card=document.createElement('button');
+  card.type='button';
+  card.className=compact?'music-home-track compact':'music-home-track';
+  card.setAttribute('aria-label','Play '+(track.title||'song')+' by '+(track.artist||'artist'));
+  const art=document.createElement('span');
+  art.className='music-home-track-art';
+  const img=document.createElement('img');
+  img.loading='lazy';img.decoding='async';img.alt='';img.src=musicThumb(track);
+  const play=document.createElement('i');
+  play.setAttribute('aria-hidden','true');play.textContent='▶';
+  art.append(img,play);
+  const title=document.createElement('b');title.textContent=track.title||'Untitled';
+  const meta=document.createElement('span');meta.textContent=track.artist||'Unknown artist';
+  card.append(art,title,meta);
+  card.onclick=()=>musicQueueAndPlay(tracks,index);
+  return card;
+}
+function renderMusicShelf(id,tracks){
+  const host=$('#'+id);
+  if(!host)return;
+  host.innerHTML='';
+  tracks.forEach((track,index)=>host.append(buildMusicArtCard(track,index,tracks)));
+}
+function renderMusicQuickPicks(tracks){
+  const host=$('#musicQuickPicks');
+  if(!host)return;
+  host.innerHTML='';
+  tracks.slice(0,6).forEach((track,index)=>{
+    const row=document.createElement('button');
+    row.type='button';row.className='music-quick-pick';
+    row.setAttribute('aria-label','Play '+track.title+' by '+track.artist);
+    const img=document.createElement('img');img.loading='lazy';img.decoding='async';img.alt='';img.src=musicThumb(track);
+    const copy=document.createElement('span');
+    const title=document.createElement('b');title.textContent=track.title||'Untitled';
+    const artist=document.createElement('small');artist.textContent=track.artist||'Unknown artist';
+    copy.append(title,artist);
+    const play=document.createElement('i');play.textContent='▶';play.setAttribute('aria-hidden','true');
+    row.append(img,copy,play);
+    row.onclick=()=>musicQueueAndPlay(tracks,index);
+    host.append(row);
+  });
+}
+function renderMusicMoods(seedTracks){
+  const host=$('#musicMoodGrid');
+  if(!host)return;
+  const moods=[
+    ['Chill','chill mix'],
+    ['Focus','focus music'],
+    ['Night drive','night drive'],
+    ['Throwbacks','throwback hits'],
+    ['Alt','alternative hits'],
+    ['Energy','workout hits']
+  ];
+  host.innerHTML='';
+  moods.forEach((item,index)=>{
+    const [label,query]=item;
+    const button=document.createElement('button');
+    button.type='button';button.className='music-mood-card';
+    const art=seedTracks[index%Math.max(1,seedTracks.length)];
+    if(art){
+      const img=document.createElement('img');img.alt='';img.loading='lazy';img.src=musicThumb(art);button.append(img);
+    }
+    const span=document.createElement('span');span.textContent=label;button.append(span);
+    button.onclick=()=>searchMusic(query);
+    host.append(button);
+  });
+}
+function renderMusicHistory(){
+  const history=musicHistory();
+  const recent=$('#musicRecentShelf'),section=$('#musicRecentSection'),side=$('#musicSidebarHistory');
+  if(section)section.hidden=!history.length;
+  if(recent){
+    recent.innerHTML='';
+    history.slice(0,10).forEach((track,index)=>recent.append(buildMusicArtCard(track,index,history)));
+  }
+  if(side){
+    side.innerHTML='';
+    if(history.length){
+      const label=document.createElement('span');label.className='music-side-recents-label';label.textContent='Recent';side.append(label);
+    }
+    history.slice(0,6).forEach((track,index)=>{
+      const button=document.createElement('button');
+      button.type='button';button.className='music-side-recent';
+      const img=document.createElement('img');img.alt='';img.loading='lazy';img.src=musicThumb(track);
+      const copy=document.createElement('span');
+      const title=document.createElement('b');title.textContent=track.title;
+      const artist=document.createElement('small');artist.textContent=track.artist;
+      copy.append(title,artist);button.append(img,copy);
+      button.onclick=()=>musicQueueAndPlay(history,index);
+      side.append(button);
+    });
+  }
+}
+async function fetchMusicHomeQuery(query,limit=12){
+  const res=await fetch(MUSIC_API+'/music/v1/search?q='+encodeURIComponent(query)+'&limit='+limit,{cache:'force-cache'});
+  if(!res.ok)throw new Error('home music failed');
+  const data=await res.json();
+  return Array.isArray(data.results)?data.results:[];
+}
+async function loadMusicHome(){
+  renderMusicHistory();
   if(musicState.homeLoaded)return;
   musicState.homeLoaded=true;
-  const host=$('#musicHomeShelf');
-  if(!host)return;
-  host.innerHTML='<div class="music-home-loading">Loading music…</div>';
+  const quick=$('#musicQuickPicks'),made=$('#musicMadeShelf'),popular=$('#musicPopularShelf');
+  const loading='<div class="music-home-loading">Loading…</div>';
+  if(quick)quick.innerHTML=loading;if(made)made.innerHTML=loading;if(popular)popular.innerHTML=loading;
   try{
-    const res=await fetch(MUSIC_API+'/music/v1/search?q='+encodeURIComponent('top songs 2026')+'&limit=10',{cache:'force-cache'});
-    if(!res.ok)throw new Error('home music failed');
-    const data=await res.json();
-    musicState.homeTracks=Array.isArray(data.results)?data.results.slice(0,10):[];
-    host.innerHTML='';
-    musicState.homeTracks.forEach((track,index)=>{
-      const card=document.createElement('button');
-      card.type='button';
-      card.className='music-artwork-card';
-      const img=document.createElement('img');img.loading='lazy';img.decoding='async';img.alt='';img.src=musicThumb(track);
-      const title=document.createElement('b');title.textContent=track.title;
-      const meta=document.createElement('span');meta.textContent=track.artist;
-      card.append(img,title,meta);
-      card.onclick=()=>{
-        musicState.queue=musicState.homeTracks.slice();
-        musicState.results=musicState.homeTracks.slice();
-        playMusicTrack(index);
-      };
-      host.append(card);
-    });
+    const [top,chill,alt]=await Promise.all([
+      fetchMusicHomeQuery('top songs',16),
+      fetchMusicHomeQuery('chill mix',10),
+      fetchMusicHomeQuery('alternative indie',10)
+    ]);
+    musicState.homeTracks=top;
+    const seen=new Set();
+    musicState.homeMade=[...chill,...alt].filter(track=>{
+      if(!track?.id||seen.has(track.id))return false;
+      seen.add(track.id);return true;
+    }).slice(0,10);
+    renderMusicQuickPicks(top);
+    renderMusicShelf('musicMadeShelf',musicState.homeMade);
+    renderMusicShelf('musicPopularShelf',top.slice(6,16));
+    renderMusicMoods([...top,...musicState.homeMade]);
+    renderMusicHistory();
   }catch(_){
-    host.innerHTML='<div class="music-home-loading">Music recommendations unavailable.</div>';
+    [quick,made,popular].forEach(host=>{if(host)host.innerHTML='<div class="music-home-loading">Could not load music.</div>'});
   }
 }
 function openMusicDrawer(kind){
@@ -1299,38 +1428,93 @@ async function loadMusicLyrics(track){
   $('#musicLyricsTitle').textContent='Lyrics';
   $('#musicLyricsTrack').textContent=track.title||'Untitled';
   $('#musicLyricsArtist').textContent=track.artist||'Unknown artist';
-  $('#musicLyricsArt').src=musicThumb(track);
+  const art=musicThumb(track);
+  $('#musicLyricsArt').src=art;
+  const backdrop=$('#musicLyricsBackdrop');
+  if(backdrop)backdrop.style.backgroundImage='url("'+art.replace(/"/g,'%22')+'")';
   const body=$('#musicLyricsBody');
   if(!body)return;
+
   const cached=musicState.lyricsCache.get(track.id);
-  if(cached){renderMusicLyricsLines(cached);return}
-  body.innerHTML='<p class="music-lyrics-loading">Loading lyrics…</p>';
+  if(cached){
+    musicState.lyricsData=cached;
+    renderMusicLyrics(cached);
+    return;
+  }
+
+  body.innerHTML='<p class="music-lyrics-loading">Finding lyrics…</p>';
   try{
     const res=await fetch(MUSIC_API+'/music/v1/lyrics/'+encodeURIComponent(track.id),{cache:'force-cache'});
+    if(!res.ok)throw new Error('lyrics unavailable');
     const data=await res.json();
-    const lines=Array.isArray(data.lines)?data.lines:[];
-    musicState.lyricsCache.set(track.id,lines);
-    renderMusicLyricsLines(lines);
+    const normalized={
+      synced:!!data.synced,
+      instrumental:!!data.instrumental,
+      lines:Array.isArray(data.lines)?data.lines.map(line=>({
+        time:Number.isFinite(Number(line?.time))?Number(line.time):null,
+        text:String(line?.text||'').trim()
+      })).filter(line=>line.text):[]
+    };
+    musicState.lyricsCache.set(track.id,normalized);
+    musicState.lyricsData=normalized;
+    renderMusicLyrics(normalized);
   }catch(_){
-    renderMusicLyricsLines([]);
+    const empty={synced:false,instrumental:false,lines:[]};
+    musicState.lyricsData=empty;
+    renderMusicLyrics(empty);
   }
 }
-function renderMusicLyricsLines(lines){
-  const body=$('#musicLyricsBody');
+function renderMusicLyrics(data){
+  const body=$('#musicLyricsBody'),mode=$('#musicLyricsMode');
   if(!body)return;
   body.innerHTML='';
+  musicState.activeLyric=-1;
+  const lines=Array.isArray(data?.lines)?data.lines:[];
+  if(mode)mode.textContent=data?.synced?'Synced':'Lyrics';
+
   if(!lines.length){
     const p=document.createElement('p');
     p.className='music-lyrics-empty';
-    p.textContent='Lyrics are not available for this song.';
+    p.textContent=data?.instrumental?'This track is instrumental.':'Lyrics are not available for this song.';
     body.append(p);
     return;
   }
-  lines.forEach(line=>{
-    const p=document.createElement('p');
-    p.textContent=line;
-    body.append(p);
+
+  lines.forEach((line,index)=>{
+    const el=document.createElement(data.synced?'button':'p');
+    el.className='music-lyric-line';
+    el.textContent=line.text;
+    el.dataset.lyricIndex=String(index);
+    if(data.synced&&Number.isFinite(line.time)){
+      el.type='button';
+      el.dataset.time=String(line.time);
+      el.addEventListener('click',()=>musicSeek(line.time));
+    }
+    body.append(el);
   });
+
+  if(data.synced)syncMusicLyrics(currentMusicTime(),true);
+}
+function syncMusicLyrics(time,force=false){
+  const data=musicState.lyricsData;
+  if(!data?.synced||!data.lines?.length)return;
+  let active=-1;
+  const now=Number(time)||0;
+  for(let i=0;i<data.lines.length;i++){
+    const t=Number(data.lines[i].time);
+    if(Number.isFinite(t)&&t<=now+.08)active=i;
+    else if(Number.isFinite(t)&&t>now+.08)break;
+  }
+  if(active===musicState.activeLyric&&!force)return;
+  musicState.activeLyric=active;
+  $$('#musicLyricsBody .music-lyric-line').forEach((el,index)=>{
+    el.classList.toggle('active',index===active);
+    el.classList.toggle('past',index<active);
+  });
+  const activeEl=$('#musicLyricsBody .music-lyric-line.active');
+  if(activeEl&&(!$('#musicLyricsPanel')?.hidden)){
+    activeEl.scrollIntoView({behavior:force?'auto':'smooth',block:'center'});
+  }
 }
 function currentMusicDuration(){
   const audio=$('#musicAudio');
@@ -1354,6 +1538,7 @@ function updateMusicTimeline(){
   range.value=duration>0?String(Math.round(current/duration*1000)):'0';
   $('#musicCurrentTime').textContent=musicTime(current);
   $('#musicDuration').textContent=musicTime(duration);
+  syncMusicLyrics(current);
 }
 function startMusicClock(){
   stopMusicClock();
@@ -1453,6 +1638,7 @@ async function playMusicTrack(index){
   musicState.index=index;
   musicState.current=track;
   musicState.playing=false;
+  rememberMusicTrack(track);
   updateMusicPlayer();
   renderMusicResults();
   if(!$('#musicLyricsPanel')?.hidden)loadMusicLyrics(track);
@@ -1509,7 +1695,7 @@ function setupMusic(){
   restoreMusicSoundSettings();
   ensureMusicPlayer().catch(()=>{});
   loadMusicCapabilities();
-  loadMusicHomeShelf();
+  loadMusicHome();
 
   form?.addEventListener('submit',e=>{e.preventDefault();searchMusic(input?.value||'')});
   input?.addEventListener('focus',()=>setMusicTab('search'));
@@ -1557,10 +1743,8 @@ function setupMusic(){
   $('#musicSoundButton')?.addEventListener('click',()=>openMusicDrawer('sound'));
   $('#musicNowLyrics')?.addEventListener('click',()=>openMusicDrawer('lyrics'));
   $('#musicNowSound')?.addEventListener('click',()=>openMusicDrawer('sound'));
-  $('#musicArtworkButton')?.addEventListener('click',()=>{
-    setMusicTab('home');
-    $('#musicNowCard')?.scrollIntoView({behavior:'smooth',block:'center'});
-  });
+  $('#musicArtworkButton')?.addEventListener('click',openMusicNow);
+  $('#musicNowClose')?.addEventListener('click',closeMusicNow);
   $('#musicDrawerBackdrop')?.addEventListener('click',closeMusicDrawers);
   $$('[data-close-music-drawer]').forEach(b=>b.addEventListener('click',closeMusicDrawers));
 
