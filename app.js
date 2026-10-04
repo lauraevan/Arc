@@ -801,8 +801,22 @@ function setupWeb(){
   $('#webHome')?.addEventListener('click',showWebHome);
 }
 function setupNavigation(){
-  $$('.nav-item[data-view]').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.view)));
-  $$('[data-go]').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.go)));
+  const collapse=$('#sidebarCollapse');
+  const applySidebarState=(collapsed)=>{
+    document.body.classList.toggle('sidebar-collapsed',collapsed);
+    if(collapse){
+      collapse.setAttribute('aria-label',collapsed?'Expand sidebar':'Collapse sidebar');
+      collapse.title=collapsed?'Expand sidebar':'Collapse sidebar';
+    }
+  };
+  applySidebarState(localStorage.getItem('arc-sidebar-collapsed')==='1');
+  collapse?.addEventListener('click',()=>{
+    const collapsed=!document.body.classList.contains('sidebar-collapsed');
+    applySidebarState(collapsed);
+    localStorage.setItem('arc-sidebar-collapsed',collapsed?'1':'0');
+  });
+  $('.nav-item[data-view]').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.view)));
+  $('[data-go]').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.go)));
   $('#menuButton')?.addEventListener('click',()=>document.body.classList.toggle('sidebar-open'));
   $('#mobileBackdrop')?.addEventListener('click',()=>document.body.classList.remove('sidebar-open'));
 }
