@@ -8,11 +8,11 @@ const MEDIA_PLAYER_ORIGIN='https://arc-media.onrender.com';
 const MUSIC_API=CLOUD_API;
 const MANGA_API=CLOUD_API;
 const SCRAMJET_ORIGIN='https://scramjet-v2-prod.onrender.com';
-const state={games:[],homeGames:HOME_GAMES.slice(),filtered:[],visible:60,view:'home',heroItems:[],heroIndex:0,heroTimer:null,heroArmed:false,libraryLoaded:false,libraryLoading:null};
+const state={games:[],homeGames:HOME_GAMES.slice(),filtered:[],visible:60,view:'home',heroItems:[],heroIndex:0,heroTimer:null,heroArmed:false,featuredTimer:null,libraryLoaded:false,libraryLoading:null};
 const cloudState={games:[],filtered:[],tag:'All',featured:null,token:null,tokenExpires:0,loading:false,active:null,pingTimer:null};
 const webState={target:null,proxyUrl:null};
 const mediaState={loaded:false,loading:false,home:null,featured:null,query:'',hlsPromise:null,heroVideoToken:0};
-const mangaState={loaded:false,loading:false,initialized:false,home:null,query:'',featured:null,current:null,chapters:[],reader:null};
+const mangaState={loaded:false,loading:false,initialized:false,home:null,query:'',featured:null,current:null,chapters:[],reader:null,retry:0};
 const musicState={query:'',results:[],queue:[],index:-1,current:null,searchController:null,initialized:false,tab:'home',player:null,playerReady:null,ytPlayerReady:null,playerUsable:false,playing:false,shuffle:false,repeat:false,timer:null,mode:'idle',playToken:0,directAvailable:false,capabilitiesLoaded:false,audioCtx:null,audioSource:null,filters:[],splitter:null,merger:null,crossL:null,crossR:null,delayL:null,delayR:null,compressor:null,analyser:null,master:null,eq:[0,0,0,0,0,0],spatial:0,normalize:false,motion:true,lyricsCache:new Map(),lyricsData:null,activeLyric:-1,homeTracks:[],homeMade:[],homeLoaded:false,vizRaf:0};
 const WALLPAPER_THEMES={
   fireflies:{
@@ -71,6 +71,40 @@ function renderFeatured(){
   const source=state.homeGames.length?state.homeGames:state.games;
   const items=source.filter(g=>g.featured).slice(0,12);
   (items.length?items:source.slice(0,12)).forEach(g=>row.append(gameCard(g)));
+  startFeaturedAutoScroll();
+}
+function startFeaturedAutoScroll(){
+  clearInterval(state.featuredTimer);
+  const row=$('#featuredGames');
+  if(!row||row.children.length<2)return;
+
+  let paused=false;
+  const setPaused=value=>{paused=value};
+  if(!row.dataset.autoScrollBound){
+    row.dataset.autoScrollBound='1';
+    row.addEventListener('pointerenter',()=>setPaused(true));
+    row.addEventListener('pointerleave',()=>setPaused(false));
+    row.addEventListener('focusin',()=>setPaused(true));
+    row.addEventListener('focusout',()=>setPaused(false));
+    row.addEventListener('touchstart',()=>setPaused(true),{passive:true});
+    row.addEventListener('touchend',()=>setTimeout(()=>setPaused(false),1500),{passive:true});
+  }
+
+  state.featuredTimer=setInterval(()=>{
+    if(paused||state.view!=='home'||document.hidden||document.body.classList.contains('reduce-motion'))return;
+    const first=row.firstElementChild;
+    if(!first)return;
+    const gap=parseFloat(getComputedStyle(row).columnGap||getComputedStyle(row).gap||'14')||14;
+    const step=first.getBoundingClientRect().width+gap;
+    const max=Math.max(0,row.scrollWidth-row.clientWidth);
+    if(max<8)return;
+    const next=row.scrollLeft+step;
+    if(next>=max-4){
+      row.scrollTo({left:0,behavior:'smooth'});
+    }else{
+      row.scrollBy({left:step,behavior:'smooth'});
+    }
+  },2800);
 }
 function homeHeroItems(){
   const source=state.homeGames.length?state.homeGames:state.games;
@@ -1055,21 +1089,50 @@ async function loadMangaHome(force=false){
   if((mangaState.loaded&&!force)||mangaState.loading)return;
   mangaState.loading=true;
   try{
-    const res=await fetch(MANGA_API+'/manga/v1/home',{cache:'force-cache'});
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok)throw new Error(data.error||'Manga library unavailable');
-    mangaState.home=data;mangaState.loaded=true;
-    const popular=Array.isArray(data.popular)?data.popular:[];
-    const recent=Array.isArray(data.recent)?data.recent:[];
+    const request=async()=>{
+      const res=await fetch(MANGA_API+'/manga/v1/home?arc='+Date.now(),{cache:'no-store'});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok)throw new Error(data.error||'Manga library unavailable');
+      return data;
+    };
+
+    let data=await request();
+    let popular=Array.isArray(data.popular)?data.popular:[];
+    let recent=Array.isArray(data.recent)?data.recent:[];
+
+    if(!popular.length&&!recent.length){
+      await new Promise(resolve=>setTimeout(resolve,450));
+      data=await request();
+      popular=Array.isArray(data.popular)?data.popular:[];
+      recent=Array.isArray(data.recent)?data.recent:[];
+    }
+
+    if(!popular.length&&!recent.length)throw new Error('Manga catalog is reconnecting');
+
+    mangaState.home=data;
+    mangaState.loaded=true;
+    mangaState.retry=0;
     renderMangaHero(popular[0]||recent[0]);
     renderMangaRow('#mangaPopularRow',popular);
     renderMangaRow('#mangaRecentRow',recent);
     renderMangaContinue();
     renderMangaSaved();
   }catch(err){
-    if($('#mangaHeroTitle'))$('#mangaHeroTitle').textContent='Could not load manga';
-    ['#mangaPopularRow','#mangaRecentRow'].forEach(id=>{const el=$(id);if(el)el.innerHTML='<div class="manga-empty">Manga catalog unavailable.</div>'});
-  }finally{mangaState.loading=false}
+    mangaState.loaded=false;
+    if($('#mangaHeroTitle'))$('#mangaHeroTitle').textContent='Connecting to manga…';
+    if($('#mangaHeroText'))$('#mangaHeroText').textContent='Refreshing the manga catalog.';
+    ['#mangaPopularRow','#mangaRecentRow'].forEach(id=>{
+      const el=$(id);
+      if(el)el.innerHTML='<div class="manga-empty">Refreshing library…</div>';
+    });
+    if(mangaState.retry<3){
+      mangaState.retry++;
+      setTimeout(()=>{mangaState.loading=false;loadMangaHome(true)},900*mangaState.retry);
+      return;
+    }
+  }finally{
+    mangaState.loading=false;
+  }
 }
 async function searchManga(query){
   const q=String(query||'').trim();
