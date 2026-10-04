@@ -78,10 +78,10 @@ function startFeaturedAutoScroll(){
   const row=$('#featuredGames');
   if(!row||row.children.length<2)return;
 
-  let paused=false;
-  const setPaused=value=>{paused=value};
   if(!row.dataset.autoScrollBound){
     row.dataset.autoScrollBound='1';
+    row.dataset.autoPaused='0';
+    const setPaused=value=>{row.dataset.autoPaused=value?'1':'0'};
     row.addEventListener('pointerenter',()=>setPaused(true));
     row.addEventListener('pointerleave',()=>setPaused(false));
     row.addEventListener('focusin',()=>setPaused(true));
@@ -91,7 +91,7 @@ function startFeaturedAutoScroll(){
   }
 
   state.featuredTimer=setInterval(()=>{
-    if(paused||state.view!=='home'||document.hidden||document.body.classList.contains('reduce-motion'))return;
+    if(row.dataset.autoPaused==='1'||state.view!=='home'||document.hidden||document.body.classList.contains('reduce-motion'))return;
     const first=row.firstElementChild;
     if(!first)return;
     const gap=parseFloat(getComputedStyle(row).columnGap||getComputedStyle(row).gap||'14')||14;
