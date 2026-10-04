@@ -2,10 +2,12 @@ const GAME_DATA='https://raw.githubusercontent.com/lauraevan/Game-Stash/main/gam
 const STASH_BASE='https://raw.githack.com/lauraevan/Game-Stash/main/';
 const STASH_RAW='https://raw.githubusercontent.com/lauraevan/Game-Stash/main/';
 const CLOUD_API='https://stratus-api-ceav.onrender.com';
+const MEDIA_API=CLOUD_API;
 const SCRAMJET_ORIGIN='https://scramjet-v2-prod.onrender.com';
 const state={games:[],filtered:[],visible:60,view:'home'};
 const cloudState={games:[],filtered:[],tag:'All',featured:null,token:null,tokenExpires:0,loading:false,active:null,pingTimer:null};
 const webState={target:null,proxyUrl:null};
+const mediaState={loaded:false,loading:false,home:null,featured:null,query:'',hlsPromise:null};
 
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -81,6 +83,7 @@ function switchView(name){
   document.body.classList.remove('sidebar-open');
   window.scrollTo({top:0,behavior:document.body.classList.contains('reduce-motion')?'auto':'smooth'});
   if(name==='games')setTimeout(()=>$('#gameSearch')?.focus({preventScroll:true}),40);
+  if(name==='watch')loadMediaHome();
 }
 function openGame(game){
   const player=document.createElement('div');player.className='player';
@@ -409,6 +412,206 @@ function setupCloud(){
 }
 
 
+function mediaType(item,forced=''){
+  return forced||item?.media_type||'movie';
+}
+function mediaTitle(item){
+  return item?.title||item?.name||'Untitled';
+}
+function mediaYear(item){
+  return String(item?.release_date||item?.first_air_date||'').slice(0,4);
+}
+function mediaPoster(item){
+  return item?.poster_path?`https://image.tmdb.org/t/p/w500${item.poster_path}`:'';
+}
+function mediaBackdrop(item){
+  return item?.backdrop_path?`https://image.tmdb.org/t/p/original${item.backdrop_path}`:mediaPoster(item);
+}
+function mediaCard(item,forcedType=''){
+  const type=mediaType(item,forcedType);
+  const card=document.createElement('button');
+  card.type='button';card.className='media-card';
+  const poster=mediaPoster(item);
+  card.innerHTML=`<div class="media-poster">${poster?`<img loading="lazy" alt="" src="${poster}">`:'<div class="media-poster-fallback">ARC</div>'}</div><div class="media-card-copy"><b></b><span></span></div>`;
+  $('.media-card-copy b',card).textContent=mediaTitle(item);
+  $('.media-card-copy span',card).textContent=[type==='tv'?'Series':'Movie',mediaYear(item)].filter(Boolean).join(' · ');
+  card.onclick=()=>openMediaDetails(type,item.id);
+  return card;
+}
+function renderMediaRow(id,items,forcedType=''){
+  const host=$(id);if(!host)return;
+  host.innerHTML='';
+  (items||[]).filter(x=>x?.id&&(forcedType||['movie','tv'].includes(x.media_type))).slice(0,20).forEach(item=>host.append(mediaCard(item,forcedType)));
+  if(!host.children.length)host.innerHTML='<div class="media-empty">Nothing to show right now.</div>';
+}
+function renderMediaHero(item){
+  mediaState.featured=item;
+  const bg=$('#mediaHeroBg'),title=$('#mediaHeroTitle'),text=$('#mediaHeroText'),button=$('#mediaHeroPlay');
+  if(!item)return;
+  if(bg)bg.style.backgroundImage=`url("${String(mediaBackdrop(item)).replace(/"/g,'%22')}")`;
+  if(title)title.textContent=mediaTitle(item);
+  if(text)text.textContent=item.overview||'Watch movies and shows through Arc.';
+  if(button){button.disabled=false;button.onclick=()=>openMediaDetails(mediaType(item),item.id)}
+}
+async function loadMediaHome(force=false){
+  if((mediaState.loaded&&!force)||mediaState.loading)return;
+  mediaState.loading=true;
+  try{
+    const res=await fetch(`${MEDIA_API}/media/v1/home`,{cache:'no-store'});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(data.error||data.detail||`Media catalog failed (${res.status})`);
+    mediaState.home=data;mediaState.loaded=true;
+    const trending=(data.trending||[]).filter(x=>['movie','tv'].includes(x.media_type));
+    renderMediaHero(trending.find(x=>x.backdrop_path)||trending[0]||data.popular_movies?.[0]);
+    renderMediaRow('#mediaTrending',trending);
+    renderMediaRow('#mediaMovies',data.popular_movies||[],'movie');
+    renderMediaRow('#mediaTv',data.popular_tv||[],'tv');
+    renderMediaRow('#mediaTopRated',[...(data.top_rated_movies||[]).slice(0,10),...(data.top_rated_tv||[]).slice(0,10)].map((x,i)=>({...x,media_type:i<10?'movie':'tv'})));
+  }catch(err){
+    const hero=$('#mediaHeroText');if(hero)hero.textContent=err.message||'Could not load movies and shows.';
+    ['#mediaTrending','#mediaMovies','#mediaTv','#mediaTopRated'].forEach(id=>{const el=$(id);if(el)el.innerHTML='<div class="media-empty">Media library unavailable. Try again shortly.</div>'});
+  }finally{mediaState.loading=false}
+}
+async function searchMedia(query){
+  const q=String(query||'').trim();
+  if(!q){clearMediaSearch();return}
+  mediaState.query=q;
+  const rows=$('#mediaRows'),grid=$('#mediaSearchGrid'),head=$('#mediaResultsHead'),title=$('#mediaResultsTitle');
+  if(rows)rows.hidden=true;if(grid){grid.hidden=false;grid.innerHTML='<div class="media-empty">Searching…</div>'}if(head)head.hidden=false;if(title)title.textContent=`Results for “${q}”`;
+  try{
+    const res=await fetch(`${MEDIA_API}/media/v1/search?q=${encodeURIComponent(q)}`,{cache:'no-store'});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(data.detail||'Search failed');
+    grid.innerHTML='';
+    (data.results||[]).slice(0,40).forEach(item=>grid.append(mediaCard(item)));
+    if(!grid.children.length)grid.innerHTML='<div class="media-empty">No movies or shows found.</div>';
+  }catch(err){grid.innerHTML=`<div class="media-empty">${escapeHtml(err.message||'Search failed.')}</div>`}
+}
+function clearMediaSearch(){
+  mediaState.query='';
+  const input=$('#mediaSearchInput');if(input)input.value='';
+  const rows=$('#mediaRows'),grid=$('#mediaSearchGrid'),head=$('#mediaResultsHead');
+  if(rows)rows.hidden=false;if(grid){grid.hidden=true;grid.innerHTML=''}if(head)head.hidden=true;
+}
+async function openMediaDetails(type,id){
+  $('#mediaDetails')?.remove();
+  const modal=document.createElement('div');modal.className='media-details';modal.id='mediaDetails';
+  modal.innerHTML='<div class="media-details-loading">Loading details…</div>';
+  document.body.append(modal);
+  try{
+    const res=await fetch(`${MEDIA_API}/media/v1/details/${encodeURIComponent(type)}/${encodeURIComponent(id)}`,{cache:'no-store'});
+    const item=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(item.detail||'Could not load title');
+    const backdrop=mediaBackdrop(item);
+    modal.innerHTML=`
+      <button class="media-details-close" aria-label="Close">×</button>
+      <div class="media-details-art" style="background-image:url('${String(backdrop).replace(/'/g,'%27')}')"></div>
+      <div class="media-details-scrim"></div>
+      <div class="media-details-copy">
+        <span class="kicker">${type==='tv'?'SERIES':'MOVIE'}</span>
+        <h2></h2>
+        <div class="media-details-meta"></div>
+        <p></p>
+        <div class="media-episode-controls" id="mediaEpisodeControls" ${type==='tv'?'':'hidden'}>
+          <select id="mediaSeasonSelect" aria-label="Season"></select>
+          <select id="mediaEpisodeSelect" aria-label="Episode"></select>
+        </div>
+        <div class="media-details-actions">
+          <button class="primary" id="mediaPlayNow">Play</button>
+          <button class="secondary" id="mediaCloseDetails">Close</button>
+        </div>
+      </div>`;
+    $('.media-details-copy h2',modal).textContent=mediaTitle(item);
+    $('.media-details-copy p',modal).textContent=item.overview||'No description available.';
+    $('.media-details-meta',modal).textContent=[
+      mediaYear(item),
+      item.runtime?`${item.runtime} min`:item.number_of_seasons?`${item.number_of_seasons} season${item.number_of_seasons===1?'':'s'}`:'',
+      item.vote_average?`${Number(item.vote_average).toFixed(1)}/10`:''
+    ].filter(Boolean).join(' · ');
+    const close=()=>modal.remove();
+    $('.media-details-close',modal).onclick=close;
+    $('#mediaCloseDetails',modal).onclick=close;
+    if(type==='tv'){
+      const seasonSelect=$('#mediaSeasonSelect',modal);
+      const seasons=(item.seasons||[]).filter(s=>s.season_number>0);
+      seasons.forEach(s=>{const o=document.createElement('option');o.value=s.season_number;o.textContent=s.name||`Season ${s.season_number}`;seasonSelect.append(o)});
+      if(!seasonSelect.children.length){const o=document.createElement('option');o.value='1';o.textContent='Season 1';seasonSelect.append(o)}
+      const loadEpisodes=async()=>{
+        const season=Number(seasonSelect.value)||1;
+        const epSelect=$('#mediaEpisodeSelect',modal);epSelect.innerHTML='<option>Loading…</option>';
+        try{
+          const rr=await fetch(`${MEDIA_API}/media/v1/tv/${id}/season/${season}`);
+          const dd=await rr.json();epSelect.innerHTML='';
+          (dd.episodes||[]).forEach(ep=>{const o=document.createElement('option');o.value=ep.episode_number;o.textContent=`${ep.episode_number}. ${ep.name||'Episode'}`;epSelect.append(o)});
+        }catch{epSelect.innerHTML='<option value="1">Episode 1</option>'}
+      };
+      seasonSelect.onchange=loadEpisodes;await loadEpisodes();
+    }
+    $('#mediaPlayNow',modal).onclick=()=>{
+      const season=type==='tv'?Number($('#mediaSeasonSelect',modal)?.value)||1:null;
+      const episode=type==='tv'?Number($('#mediaEpisodeSelect',modal)?.value)||1:null;
+      playMedia({type,id,title:mediaTitle(item),year:Number(mediaYear(item))||undefined,imdbId:item.imdb_id||'',season,episode});
+    };
+  }catch(err){modal.innerHTML=`<button class="media-details-close" aria-label="Close">×</button><div class="media-details-loading">${escapeHtml(err.message||'Could not load title.')}</div>`;$('.media-details-close',modal).onclick=()=>modal.remove()}
+}
+function absoluteMediaUrl(url=''){
+  return /^https?:\/\//i.test(url)?url:MEDIA_API+(url.startsWith('/')?url:'/'+url);
+}
+function ensureHls(){
+  if(window.Hls)return Promise.resolve(window.Hls);
+  if(mediaState.hlsPromise)return mediaState.hlsPromise;
+  mediaState.hlsPromise=new Promise((resolve,reject)=>{
+    const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js';s.onload=()=>resolve(window.Hls);s.onerror=()=>reject(new Error('Could not load HLS player'));document.head.append(s);
+  });
+  return mediaState.hlsPromise;
+}
+async function attachMediaSource(video,server){
+  const url=absoluteMediaUrl(server.play_url||'');
+  if(!url)throw new Error('No playable URL returned');
+  const isHls=server.type==='hls'||/\.m3u8(?:$|\?)/i.test(url);
+  if(isHls&&video.canPlayType('application/vnd.apple.mpegurl')){video.src=url;return}
+  if(isHls){
+    const Hls=await ensureHls();
+    if(!Hls?.isSupported())throw new Error('HLS playback is not supported here');
+    const hls=new Hls({enableWorker:true,lowLatencyMode:false});
+    hls.loadSource(url);hls.attachMedia(video);
+    video._arcHls=hls;return;
+  }
+  video.src=url;
+}
+async function playMedia(opts){
+  $('#mediaPlayer')?.remove();
+  const shell=document.createElement('div');shell.className='media-player';shell.id='mediaPlayer';
+  shell.innerHTML=`<div class="media-player-bar"><div><b></b><small id="mediaPlayerStatus">Finding a stream…</small></div><button aria-label="Close">×</button></div><div class="media-player-stage"><div class="media-player-loading">Connecting to Arc media…</div></div>`;
+  $('.media-player-bar b',shell).textContent=opts.title||'Arc';
+  $('.media-player-bar button',shell).onclick=()=>{const v=$('video',shell);try{v?._arcHls?.destroy()}catch{}shell.remove()};
+  document.body.append(shell);
+  try{
+    const qs=new URLSearchParams({type:opts.type,id:String(opts.id)});
+    if(opts.season)qs.set('season',String(opts.season));if(opts.episode)qs.set('episode',String(opts.episode));
+    if(opts.title)qs.set('title',opts.title);if(opts.year)qs.set('year',String(opts.year));if(opts.imdbId)qs.set('imdb_id',opts.imdbId);
+    const res=await fetch(`${MEDIA_API}/media/v1/streams?${qs}`,{cache:'no-store'});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(data.detail||data.error||'Stream lookup failed');
+    const server=(data.servers||[])[0];
+    if(!server)throw new Error('No playable stream was found for this title');
+    const stage=$('.media-player-stage',shell);const video=document.createElement('video');
+    video.className='media-video';video.controls=true;video.autoplay=true;video.playsInline=true;
+    stage.replaceChildren(video);
+    $('#mediaPlayerStatus',shell).textContent=[server.name,server.quality].filter(Boolean).join(' · ')||'Playing';
+    await attachMediaSource(video,server);
+    video.play().catch(()=>{});
+  }catch(err){
+    const stage=$('.media-player-stage',shell);if(stage)stage.innerHTML=`<div class="media-player-loading"><b>Couldn’t start playback</b><span>${escapeHtml(err.message||'Try another title.')}</span></div>`;
+    const status=$('#mediaPlayerStatus',shell);if(status)status.textContent='Playback unavailable';
+  }
+}
+function setupMedia(){
+  $('#mediaSearchForm')?.addEventListener('submit',e=>{e.preventDefault();searchMedia($('#mediaSearchInput')?.value||'')});
+  $('#mediaClearSearch')?.addEventListener('click',clearMediaSearch);
+}
+
+
 function normalizeWebTarget(input=''){
   const value=String(input).trim();
   if(!value)return null;
@@ -515,4 +718,4 @@ function setTheme(name){
   $$('.theme-option').forEach(b=>b.classList.toggle('selected',b.dataset.theme===name));
   localStorage.setItem('arc-theme',name);
 }
-setupNavigation();setupSearch();setupThemes();setupWeb();setupCloud();loadGames();
+setupNavigation();setupSearch();setupThemes();setupWeb();setupCloud();setupMedia();loadGames();
