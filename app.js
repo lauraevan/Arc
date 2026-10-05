@@ -1541,7 +1541,7 @@ function setupManga(){
     const items=mangaState.home?.popular||[];
     if(items.length){const pick=items[Math.floor(Math.random()*items.length)];openMangaDetails(pick.id,pick)}
   });
-  $$('[data-manga-filter]').forEach(button=>button.addEventListener('click',()=>{
+  $('[data-manga-filter]').forEach(button=>button.addEventListener('click',()=>{
     $$('[data-manga-filter]').forEach(x=>x.classList.toggle('active',x===button));
     const filter=button.dataset.mangaFilter;
     if(filter==='home'){clearMangaSearch();window.scrollTo({top:0,behavior:'smooth'})}
