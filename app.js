@@ -67,9 +67,10 @@ async function mediaJson(path,options={},timeoutMs=12000){
   const suffix=path.startsWith('/')?path:'/'+path;
   const targets=[MEDIA_API+'/media/v1'+suffix,MEDIA_PLAYER_ORIGIN+'/api'+suffix];
   let lastError=null;
+  const perTarget=Math.max(3500,Math.ceil(timeoutMs/targets.length));
   for(const url of targets){
     try{
-      const {response,data}=await fetchJsonDeadline(url,options,timeoutMs);
+      const {response,data}=await fetchJsonDeadline(url,options,perTarget);
       if(response.ok)return data;
       lastError=new Error(data.detail||data.error||('Cinema request failed ('+response.status+')'));
     }catch(error){lastError=error}
@@ -1057,9 +1058,11 @@ function mediaServerRank(server){
 async function playMedia(opts){
   $('#mediaPlayer')?.remove();
   const shell=document.createElement('div');shell.className='media-player';shell.id='mediaPlayer';
-  shell.innerHTML=`<div class="media-player-bar"><div><b></b><small id="mediaPlayerStatus">Arc player</small></div><button aria-label="Close">×</button></div><div class="media-player-stage"></div>`;
+  shell.innerHTML='<div class="media-player-bar"><div><b></b><small id="mediaPlayerStatus">Loading player…</small></div><button aria-label="Close">×</button></div><div class="media-player-stage"><div class="media-player-boot" id="mediaPlayerBoot"><b>Opening player</b><span>Connecting to Arc media…</span></div></div>';
   $('.media-player-bar b',shell).textContent=opts.title||'Arc';
-  $('.media-player-bar button',shell).onclick=()=>shell.remove();
+  let loadTimer=null;
+  const close=()=>{clearTimeout(loadTimer);shell.remove()};
+  $('.media-player-bar button',shell).onclick=close;
   const qs=new URLSearchParams({type:opts.type,id:String(opts.id)});
   if(opts.title)qs.set('title',opts.title);
   if(opts.year)qs.set('year',String(opts.year));
@@ -1070,9 +1073,32 @@ async function playMedia(opts){
   frame.allow='autoplay; fullscreen; picture-in-picture';
   frame.allowFullscreen=true;
   frame.referrerPolicy='no-referrer';
-  frame.src=`${MEDIA_PLAYER_ORIGIN}/api/player?${qs}`;
-  $('.media-player-stage',shell).append(frame);
+  const playerUrl=()=>MEDIA_PLAYER_ORIGIN+'/api/player?'+qs.toString()+'&arc='+Date.now();
+  frame.src=playerUrl();
+  const stage=$('.media-player-stage',shell);
+  stage.append(frame);
   document.body.append(shell);
+  const boot=$('#mediaPlayerBoot',shell);
+  const armDeadline=()=>{
+    clearTimeout(loadTimer);
+    loadTimer=setTimeout(()=>{
+      if(!shell.isConnected||!boot)return;
+      boot.innerHTML='<b>Player did not finish loading.</b><span>The media server took too long to respond.</span><button class="secondary" type="button">Retry</button>';
+      const status=$('#mediaPlayerStatus',shell);if(status)status.textContent='Connection timed out';
+      $('button',boot)?.addEventListener('click',()=>{
+        boot.innerHTML='<b>Opening player</b><span>Trying Arc media again…</span>';
+        const status=$('#mediaPlayerStatus',shell);if(status)status.textContent='Loading player…';
+        frame.src=playerUrl();
+        armDeadline();
+      },{once:true});
+    },15000);
+  };
+  frame.addEventListener('load',()=>{
+    clearTimeout(loadTimer);
+    if(boot)boot.remove();
+    const status=$('#mediaPlayerStatus',shell);if(status)status.textContent='Arc player';
+  });
+  armDeadline();
 }
 function setupMedia(){
   $('#mediaSearchForm')?.addEventListener('submit',e=>{e.preventDefault();searchMedia($('#mediaSearchInput')?.value||'')});
@@ -1242,7 +1268,7 @@ async function loadMangaHome(force=false){
   mangaState.loading=true;
   try{
     const request=async()=>{
-      const {response,data}=await fetchJsonDeadline(MANGA_API+'/manga/v1/home?arc='+Date.now(),{cache:'no-store'},12000);
+      const {response,data}=await fetchJsonDeadline(MANGA_API+'/manga/v1/home?arc='+Date.now(),{cache:'no-store'},9000);
       if(!response.ok)throw new Error(data.error||'Manga library unavailable');
       return data;
     };
@@ -1269,7 +1295,7 @@ async function loadMangaHome(force=false){
     renderMangaSaved();
   }catch(err){
     mangaState.loaded=false;
-    if(mangaState.retry<2){
+    if(mangaState.retry<1){
       mangaState.retry++;
       if($('#mangaHeroTitle'))$('#mangaHeroTitle').textContent='Reconnecting to manga…';
       if($('#mangaHeroText'))$('#mangaHeroText').textContent='Trying the catalog again.';
@@ -1372,7 +1398,7 @@ async function openMangaDetails(id,seed={}){
   shell.innerHTML='<div class="manga-details-loading">Opening manga…</div>';
   document.body.append(shell);
   try{
-    const {response,data:item}=await fetchJsonDeadline(MANGA_API+'/manga/v1/info/'+encodeURIComponent(id),{cache:'force-cache'},12000);
+    const {response,data:item}=await fetchJsonDeadline(MANGA_API+'/manga/v1/info/'+encodeURIComponent(id),{cache:'force-cache'},18000);
     if(!response.ok)throw new Error(item.error||'Could not load manga');
     mangaState.current=item;
     mangaState.chapters=normalizeMangaChapters(item.chapters);
@@ -1465,7 +1491,7 @@ function saveReaderProgress(){
 }
 async function resumeManga(entry){
   try{
-    const {response,data:item}=await fetchJsonDeadline(MANGA_API+'/manga/v1/info/'+encodeURIComponent(entry.mangaId),{cache:'force-cache'},12000);
+    const {response,data:item}=await fetchJsonDeadline(MANGA_API+'/manga/v1/info/'+encodeURIComponent(entry.mangaId),{cache:'force-cache'},18000);
     if(!response.ok)throw new Error(item.error||'Could not resume manga');
     const chapters=normalizeMangaChapters(item.chapters);
     let index=chapters.findIndex(x=>x.id===entry.chapterId);
@@ -1540,7 +1566,7 @@ async function openMangaChapter(manga,chapters,chapterIndex,startPage=0){
   $('.manga-reader-title span',shell).textContent=chapterLabel(chapter,chapterIndex);
   document.body.append(shell);
   try{
-    const {response,data:pages}=await fetchJsonDeadline(MANGA_API+'/manga/v1/read?chapterId='+encodeURIComponent(chapter.id),{cache:'no-store'},18000);
+    const {response,data:pages}=await fetchJsonDeadline(MANGA_API+'/manga/v1/read?chapterId='+encodeURIComponent(chapter.id),{cache:'no-store'},24000);
     if(!response.ok||!Array.isArray(pages)||!pages.length)throw new Error('This chapter has no readable pages');
     const mode=localStorage.getItem('arc-manga-reader-mode')||'scroll';
     const zoom=Math.max(.65,Math.min(1.5,Number(localStorage.getItem('arc-manga-reader-zoom')||1)));
