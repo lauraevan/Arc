@@ -413,62 +413,59 @@
         <header class="manga-toolbar">
           <div class="manga-brand-copy">
             <span class="kicker">ARC MANGA</span>
-            <h1>Read manga</h1>
+            <h1>Manga</h1>
+            <p class="manga-toolbar-sub">Find a series, keep your place, and read chapter by chapter.</p>
           </div>
           <form class="manga-search" id="mangaSearchForm">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-            <input id="mangaSearchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Search manga" aria-label="Search manga" />
+            <input id="mangaSearchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Search title, author, genre" aria-label="Search manga" />
           </form>
         </header>
 
-        <section class="manga-hero" id="mangaHero">
-          <div class="manga-hero-backdrop" id="mangaHeroBackdrop"></div>
-          <div class="manga-hero-scrim"></div>
-          <div class="manga-hero-collage" id="mangaHeroCollage" aria-label="Featured manga artwork"></div>
-          <img class="manga-hero-cover" id="mangaHeroCover" alt="" />
-          <div class="manga-hero-copy">
-            <span class="manga-hero-label">FEATURED MANGA</span>
-            <h2 id="mangaHeroTitle">Loading library…</h2>
-            <p id="mangaHeroText">Discover popular manga and pick up where you left off.</p>
-            <div class="manga-hero-actions">
-              <button class="primary" id="mangaHeroOpen" type="button" disabled>View manga</button>
-              <button class="secondary" id="mangaHeroRandom" type="button">Surprise me</button>
+        <div class="manga-dashboard">
+          <section class="manga-hero" id="mangaHero">
+            <div class="manga-hero-backdrop" id="mangaHeroBackdrop"></div>
+            <div class="manga-hero-scrim"></div>
+            <img class="manga-hero-cover" id="mangaHeroCover" alt="" />
+            <div class="manga-hero-copy">
+              <span class="manga-hero-label">FEATURED SERIES</span>
+              <h2 id="mangaHeroTitle">Loading library…</h2>
+              <p id="mangaHeroText">Discover popular manga and pick up where you left off.</p>
+              <div class="manga-hero-meta"><span id="mangaHeroStatus">Featured now</span><i></i><span>Arc Reader</span></div>
+              <div class="manga-hero-actions">
+                <button class="primary" id="mangaHeroOpen" type="button" disabled>Start reading</button>
+                <button class="secondary" id="mangaHeroRandom" type="button">Surprise me</button>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+
+          <aside class="manga-latest-panel" aria-label="Latest manga updates">
+            <div class="manga-latest-head">
+              <div><span>LATEST UPDATES</span><h2>New chapters</h2></div>
+              <small>Fresh from the catalog</small>
+            </div>
+            <div class="manga-latest-list" id="mangaLatestList">
+              <div class="manga-latest-empty">Loading updates…</div>
+            </div>
+          </aside>
+        </div>
 
         <div class="manga-chip-row" role="navigation" aria-label="Manga sections">
           <button type="button" class="active" data-manga-filter="home">Home</button>
           <button type="button" data-manga-filter="popular">Popular</button>
-          <button type="button" data-manga-filter="recent">Recent</button>
+          <button type="button" data-manga-filter="recent">Latest</button>
           <button type="button" data-manga-filter="saved">Saved</button>
         </div>
 
-        <section class="manga-editorial" aria-label="Manga discovery">
-          <div class="manga-editorial-main" id="mangaEditorialMain"></div>
-          <div class="manga-editorial-stack" id="mangaEditorialStack"></div>
-        </section>
-
-        <section class="manga-ranking-section">
-          <div class="manga-section-head">
-            <div><span>THIS WEEK</span><h2>Top 10</h2></div>
-          </div>
-          <div class="manga-ranking-row" id="mangaRanking"></div>
-        </section>
-
-        <section class="manga-genres">
-          <div class="manga-section-head">
-            <div><span>EXPLORE</span><h2>Browse by mood</h2></div>
-          </div>
-          <div class="manga-genre-grid">
-            <button type="button" data-manga-query="action">Action</button>
-            <button type="button" data-manga-query="romance">Romance</button>
-            <button type="button" data-manga-query="fantasy">Fantasy</button>
-            <button type="button" data-manga-query="horror">Horror</button>
-            <button type="button" data-manga-query="sports">Sports</button>
-            <button type="button" data-manga-query="slice of life">Slice of life</button>
-          </div>
-        </section>
+        <div class="manga-genre-strip" aria-label="Browse manga by genre">
+          <span>Browse</span>
+          <button type="button" data-manga-query="action">Action</button>
+          <button type="button" data-manga-query="romance">Romance</button>
+          <button type="button" data-manga-query="fantasy">Fantasy</button>
+          <button type="button" data-manga-query="horror">Horror</button>
+          <button type="button" data-manga-query="sports">Sports</button>
+          <button type="button" data-manga-query="slice of life">Slice of life</button>
+        </div>
 
         <div class="manga-search-results" id="mangaSearchResults" hidden>
           <div class="manga-section-head">
@@ -480,22 +477,22 @@
 
         <div class="manga-home" id="mangaHome">
           <section class="manga-section" id="mangaContinueSection" hidden>
-            <div class="manga-section-head"><div><span>YOUR READING</span><h2>Continue reading</h2></div></div>
-            <div class="manga-row" id="mangaContinueRow"></div>
+            <div class="manga-section-head"><div><span>YOUR READING</span><h2>Continue reading</h2></div><span>Your saved position</span></div>
+            <div class="manga-row manga-continue-row" id="mangaContinueRow"></div>
           </section>
 
           <section class="manga-section">
-            <div class="manga-section-head"><div><span>DISCOVER</span><h2>Popular now</h2></div></div>
+            <div class="manga-section-head"><div><span>POPULAR</span><h2>Popular manga</h2></div><span>Series readers are opening now</span></div>
             <div class="manga-row" id="mangaPopularRow"></div>
           </section>
 
           <section class="manga-section">
-            <div class="manga-section-head"><div><span>NEW CHAPTERS</span><h2>Recently added</h2></div></div>
+            <div class="manga-section-head"><div><span>RECENTLY UPDATED</span><h2>More new releases</h2></div><span>Updated catalog</span></div>
             <div class="manga-row" id="mangaRecentRow"></div>
           </section>
 
           <section class="manga-section" id="mangaSavedSection" hidden>
-            <div class="manga-section-head"><div><span>YOUR LIBRARY</span><h2>Saved manga</h2></div></div>
+            <div class="manga-section-head"><div><span>YOUR LIBRARY</span><h2>Saved manga</h2></div><span>Ready when you are</span></div>
             <div class="manga-row" id="mangaSavedRow"></div>
           </section>
         </div>
