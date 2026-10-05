@@ -11,8 +11,8 @@ const SCRAMJET_ORIGIN='https://scramjet-v2-prod.onrender.com';
 const state={games:[],homeGames:HOME_GAMES.slice(),filtered:[],visible:60,view:'home',heroItems:[],heroIndex:0,heroTimer:null,heroArmed:false,featuredTimer:null,featuredRaf:null,libraryLoaded:false,libraryLoading:null};
 const cloudState={games:[],filtered:[],tag:'All',featured:null,token:null,tokenExpires:0,loading:false,active:null,pingTimer:null};
 const webState={target:null,proxyUrl:null};
-const mediaState={loaded:false,loading:false,home:null,featured:null,query:'',hlsPromise:null,heroVideoToken:0};
-const mangaState={loaded:false,loading:false,initialized:false,home:null,query:'',featured:null,current:null,chapters:[],reader:null,retry:0};
+const mediaState={loaded:false,loading:false,home:null,featured:null,query:'',hlsPromise:null,heroVideoToken:0,searchToken:0};
+const mangaState={loaded:false,loading:false,initialized:false,home:null,query:'',featured:null,current:null,chapters:[],reader:null,retry:0,searchToken:0};
 const musicState={query:'',results:[],queue:[],index:-1,current:null,searchController:null,initialized:false,tab:'home',player:null,playerReady:null,ytPlayerReady:null,playerUsable:false,playing:false,shuffle:false,repeat:false,timer:null,mode:'idle',playToken:0,directAvailable:false,capabilitiesLoaded:false,audioCtx:null,audioSource:null,filters:[],splitter:null,merger:null,crossL:null,crossR:null,delayL:null,delayR:null,compressor:null,analyser:null,master:null,eq:[0,0,0,0,0,0],spatial:0,normalize:false,motion:true,lyricsCache:new Map(),lyricsData:null,activeLyric:-1,homeTracks:[],homeMade:[],homeLoaded:false,vizRaf:0};
 const WALLPAPER_THEMES={
   fireflies:{
@@ -40,6 +40,43 @@ const wallpaperState={urls:new Map(),token:0};
 
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+async function fetchJsonDeadline(url,options={},timeoutMs=12000){
+  const controller=new AbortController();
+  let timedOut=false;
+  const timer=setTimeout(()=>{timedOut=true;controller.abort()},timeoutMs);
+  const external=options.signal;
+  const relayAbort=()=>controller.abort();
+  if(external){
+    if(external.aborted)controller.abort();
+    else external.addEventListener('abort',relayAbort,{once:true});
+  }
+  try{
+    const response=await fetch(url,{...options,signal:controller.signal});
+    const data=await response.json().catch(()=>({}));
+    return {response,data};
+  }catch(error){
+    if(timedOut)throw new Error('Request timed out. Try again.');
+    if(controller.signal.aborted)throw new Error('Request cancelled.');
+    throw error;
+  }finally{
+    clearTimeout(timer);
+    external?.removeEventListener?.('abort',relayAbort);
+  }
+}
+async function mediaJson(path,options={},timeoutMs=12000){
+  const suffix=path.startsWith('/')?path:'/'+path;
+  const targets=[MEDIA_API+'/media/v1'+suffix,MEDIA_PLAYER_ORIGIN+'/api'+suffix];
+  let lastError=null;
+  for(const url of targets){
+    try{
+      const {response,data}=await fetchJsonDeadline(url,options,timeoutMs);
+      if(response.ok)return data;
+      lastError=new Error(data.detail||data.error||('Cinema request failed ('+response.status+')'));
+    }catch(error){lastError=error}
+  }
+  throw lastError||new Error('Cinema service unavailable.');
+}
+
 
 function encodePath(path=''){
   return path.split('/').map(encodeURIComponent).join('/');
