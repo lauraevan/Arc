@@ -1295,12 +1295,14 @@ function chapterLabel(chapter,index){
   return chapter?.title||chapter?.chapter||('Chapter '+(index+1));
 }
 function normalizeMangaChapters(chapters){
-  const list=(Array.isArray(chapters)?chapters:[]).filter(ch=>{
-    if(!ch?.id)return false;
-    if(ch.readable===false||ch.externalUrl)return false;
-    const pages=Number(ch.pages);
-    return !Number.isFinite(pages)||pages>0;
-  });
+  const all=(Array.isArray(chapters)?chapters:[]).filter(ch=>ch?.id);
+  const internal=all.filter(ch=>!ch.externalUrl);
+  const readable=internal.filter(ch=>ch.readable!==false);
+
+  // MangaDex often reports pages: 0 until the chapter is opened.
+  // Do not treat that metadata value as proof that the chapter is empty.
+  const list=(readable.length?readable:(internal.length?internal:all)).slice();
+
   const numeric=list.filter(ch=>Number.isFinite(chapterNumber(ch)));
   if(numeric.length>=Math.max(2,Math.floor(list.length*.6))){
     list.sort((a,b)=>{
