@@ -1536,12 +1536,12 @@ function setupManga(){
   mangaState.initialized=true;
   $('#mangaSearchForm')?.addEventListener('submit',e=>{e.preventDefault();searchManga($('#mangaSearchInput')?.value||'')});
   $('#mangaClearSearch')?.addEventListener('click',clearMangaSearch);
-  $('[data-manga-query]').forEach(button=>button.addEventListener('click',()=>searchManga(button.dataset.mangaQuery||'')));
+  $$('[data-manga-query]').forEach(button=>button.addEventListener('click',()=>searchManga(button.dataset.mangaQuery||'')));
   $('#mangaHeroRandom')?.addEventListener('click',()=>{
     const items=mangaState.home?.popular||[];
     if(items.length){const pick=items[Math.floor(Math.random()*items.length)];openMangaDetails(pick.id,pick)}
   });
-  $('[data-manga-filter]').forEach(button=>button.addEventListener('click',()=>{
+  $$('[data-manga-filter]').forEach(button=>button.addEventListener('click',()=>{
     $$('[data-manga-filter]').forEach(x=>x.classList.toggle('active',x===button));
     const filter=button.dataset.mangaFilter;
     if(filter==='home'){clearMangaSearch();window.scrollTo({top:0,behavior:'smooth'})}
