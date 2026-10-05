@@ -715,8 +715,7 @@ async function hydrateMediaHeroVideo(item){
   if(!item?.id)return;
   try{
     const type=mediaType(item);
-    const res=await fetch(`${MEDIA_API}/media/v1/details/${type}/${item.id}`,{cache:'force-cache'});
-    const details=await res.json().catch(()=>({}));
+    const details=await mediaJson('/details/'+encodeURIComponent(type)+'/'+encodeURIComponent(item.id),{cache:'force-cache'},9000);
     if(token!==mediaState.heroVideoToken)return;
     mountMediaAutoplay(host,mediaTrailer(details));
   }catch{}
@@ -767,13 +766,14 @@ function renderMediaHero(item){
 async function loadMediaHome(force=false){
   if((mediaState.loaded&&!force)||mediaState.loading)return;
   mediaState.loading=true;
+  const rows=['#mediaTrending','#mediaNowPlaying','#mediaMovies','#mediaTv','#mediaUpcoming','#mediaTopRated'];
   try{
-    const res=await fetch(`${MEDIA_API}/media/v1/home`,{cache:'force-cache'});
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok)throw new Error(data.error||data.detail||`Media catalog failed (${res.status})`);
+    const data=await mediaJson('/home',{cache:'no-store'},12000);
     mediaState.home=data;mediaState.loaded=true;
     const trending=(data.trending||[]).filter(x=>['movie','tv'].includes(x.media_type));
-    renderMediaHero(trending.find(x=>x.backdrop_path)||data.now_playing?.find(x=>x.backdrop_path)||trending[0]||data.popular_movies?.[0]);
+    const featured=trending.find(x=>x.backdrop_path)||data.now_playing?.find(x=>x.backdrop_path)||trending[0]||data.popular_movies?.[0];
+    if(!featured)throw new Error('Cinema catalog returned no titles.');
+    renderMediaHero(featured);
     renderMediaRow('#mediaTrending',trending,'','landscape');
     renderMediaRow('#mediaNowPlaying',(data.now_playing||[]).map(x=>({...x,media_type:'movie'})),'movie','poster');
     renderMediaRow('#mediaMovies',(data.popular_movies||[]).map(x=>({...x,media_type:'movie'})),'movie','poster');
@@ -785,29 +785,41 @@ async function loadMediaHome(force=false){
     ];
     renderMediaRow('#mediaTopRated',topRated);
   }catch(err){
+    mediaState.loaded=false;
+    const message=escapeHtml(err.message||'Could not load movies and shows.');
     const hero=$('#mediaHeroText');if(hero)hero.textContent=err.message||'Could not load movies and shows.';
-    ['#mediaTrending','#mediaNowPlaying','#mediaMovies','#mediaTv','#mediaUpcoming','#mediaTopRated'].forEach(id=>{const el=$(id);if(el)el.innerHTML='<div class="media-empty">Cinema library unavailable. Try again shortly.</div>'});
+    rows.forEach((id,index)=>{
+      const el=$(id);if(!el)return;
+      el.innerHTML=index===0
+        ?'<div class="media-empty"><b>Cinema did not finish loading.</b><span>'+message+'</span><button class="secondary" id="retryCinema">Retry</button></div>'
+        :'<div class="media-empty">Cinema library unavailable.</div>';
+    });
+    setTimeout(()=>$('#retryCinema')?.addEventListener('click',()=>loadMediaHome(true)),0);
   }finally{mediaState.loading=false}
 }
 async function searchMedia(query){
   const q=String(query||'').trim();
   if(!q){clearMediaSearch();return}
   mediaState.query=q;
+  const token=++mediaState.searchToken;
   const rows=$('#mediaRows'),grid=$('#mediaSearchGrid'),head=$('#mediaResultsHead'),title=$('#mediaResultsTitle');
   if(rows)rows.hidden=true;
   if(grid){grid.hidden=false;grid.innerHTML='<div class="media-empty">Searching the cinema…</div>'}
   if(head)head.hidden=false;
-  if(title)title.textContent=`Results for “${q}”`;
+  if(title)title.textContent='Results for “'+q+'”';
   try{
-    const res=await fetch(`${MEDIA_API}/media/v1/search?q=${encodeURIComponent(q)}`,{cache:'no-store'});
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok)throw new Error(data.detail||'Search failed');
+    const data=await mediaJson('/search?q='+encodeURIComponent(q),{cache:'no-store'},10000);
+    if(token!==mediaState.searchToken)return;
     grid.innerHTML='';
     (data.results||[]).slice(0,40).forEach(item=>grid.append(mediaCard(item)));
     if(!grid.children.length)grid.innerHTML='<div class="media-empty">No movies or shows found.</div>';
-  }catch(err){grid.innerHTML=`<div class="media-empty">${escapeHtml(err.message||'Search failed.')}</div>`}
+  }catch(err){
+    if(token!==mediaState.searchToken)return;
+    if(grid)grid.innerHTML='<div class="media-empty">'+escapeHtml(err.message||'Search failed.')+'</div>';
+  }
 }
 function clearMediaSearch(){
+  mediaState.searchToken++;
   mediaState.query='';
   const input=$('#mediaSearchInput');if(input)input.value='';
   const rows=$('#mediaRows'),grid=$('#mediaSearchGrid'),head=$('#mediaResultsHead');
@@ -859,9 +871,7 @@ async function openMediaDetails(type,id){
   modal.innerHTML='<div class="media-details-loading">Opening cinema…</div>';
   document.body.append(modal);
   try{
-    const res=await fetch(`${MEDIA_API}/media/v1/details/${encodeURIComponent(type)}/${encodeURIComponent(id)}`,{cache:'force-cache'});
-    const item=await res.json().catch(()=>({}));
-    if(!res.ok)throw new Error(item.detail||'Could not load title');
+    const item=await mediaJson('/details/'+encodeURIComponent(type)+'/'+encodeURIComponent(id),{cache:'force-cache'},12000);
     const backdrop=mediaBackdrop(item);
     const trailer=mediaTrailer(item);
     const logo=mediaLogo(item);
@@ -927,8 +937,7 @@ async function openMediaDetails(type,id){
         const epSelect=$('#mediaEpisodeSelect',modal);
         epSelect.innerHTML='<option>Loading episodes…</option>';
         try{
-          const rr=await fetch(`${MEDIA_API}/media/v1/tv/${id}/season/${season}`,{cache:'force-cache'});
-          const dd=await rr.json();
+          const dd=await mediaJson('/tv/'+encodeURIComponent(id)+'/season/'+encodeURIComponent(season),{cache:'force-cache'},10000);
           epSelect.innerHTML='';
           (dd.episodes||[]).forEach(ep=>{
             const o=document.createElement('option');
