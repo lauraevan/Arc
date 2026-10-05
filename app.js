@@ -1205,12 +1205,14 @@ async function loadMangaHome(force=false){
     let data=await request();
     let popular=Array.isArray(data.popular)?data.popular:[];
     let recent=Array.isArray(data.recent)?data.recent:[];
+    let latest=Array.isArray(data.latest)?data.latest:recent;
 
     if(!popular.length&&!recent.length){
       await new Promise(resolve=>setTimeout(resolve,450));
       data=await request();
       popular=Array.isArray(data.popular)?data.popular:[];
       recent=Array.isArray(data.recent)?data.recent:[];
+      latest=Array.isArray(data.latest)?data.latest:recent;
     }
 
     if(!popular.length&&!recent.length)throw new Error('Manga catalog is reconnecting');
@@ -1219,7 +1221,7 @@ async function loadMangaHome(force=false){
     mangaState.loaded=true;
     mangaState.retry=0;
     renderMangaHero(popular[0]||recent[0]);
-    renderMangaArtwork(popular,recent);
+    renderMangaArtwork(popular,latest);
     renderMangaRow('#mangaPopularRow',popular);
     renderMangaRow('#mangaRecentRow',recent);
     renderMangaContinue();
@@ -1241,12 +1243,18 @@ async function loadMangaHome(force=false){
     mangaState.loading=false;
   }
 }
+function setMangaSearchMode(active){
+  ['#mangaDashboard','#mangaNav','#mangaGenreStrip'].forEach(selector=>{
+    const el=$(selector);if(el)el.hidden=!!active;
+  });
+}
 async function searchManga(query){
   const q=String(query||'').trim();
   if(!q){clearMangaSearch();return}
   mangaState.query=q;
   const home=$('#mangaHome'),results=$('#mangaSearchResults'),grid=$('#mangaSearchGrid');
   if(home)home.hidden=true;
+  setMangaSearchMode(true);
   if(results)results.hidden=false;
   if($('#mangaSearchTitle'))$('#mangaSearchTitle').textContent='Results for “'+q+'”';
   if(grid)grid.innerHTML='<div class="manga-empty">Searching…</div>';
@@ -1266,6 +1274,7 @@ function clearMangaSearch(){
   mangaState.query='';
   if($('#mangaSearchInput'))$('#mangaSearchInput').value='';
   if($('#mangaSearchResults'))$('#mangaSearchResults').hidden=true;
+  setMangaSearchMode(false);
   if($('#mangaHome'))$('#mangaHome').hidden=false;
 }
 function toggleMangaSaved(item){
@@ -1285,6 +1294,24 @@ function chapterNumber(chapter){
 function chapterLabel(chapter,index){
   return chapter?.title||chapter?.chapter||('Chapter '+(index+1));
 }
+function normalizeMangaChapters(chapters){
+  const list=(Array.isArray(chapters)?chapters:[]).filter(ch=>{
+    if(!ch?.id)return false;
+    if(ch.readable===false||ch.externalUrl)return false;
+    const pages=Number(ch.pages);
+    return !Number.isFinite(pages)||pages>0;
+  });
+  const numeric=list.filter(ch=>Number.isFinite(chapterNumber(ch)));
+  if(numeric.length>=Math.max(2,Math.floor(list.length*.6))){
+    list.sort((a,b)=>{
+      const an=chapterNumber(a),bn=chapterNumber(b);
+      if(!Number.isFinite(an))return 1;
+      if(!Number.isFinite(bn))return -1;
+      return an-bn;
+    });
+  }
+  return list;
+}
 async function openMangaDetails(id,seed={}){
   $('#mangaDetails')?.remove();
   const shell=document.createElement('div');
@@ -1296,26 +1323,13 @@ async function openMangaDetails(id,seed={}){
     const item=await res.json().catch(()=>({}));
     if(!res.ok)throw new Error(item.error||'Could not load manga');
     mangaState.current=item;
-    const allChapters=Array.isArray(item.chapters)?item.chapters.slice():[];
-    const readableChapters=allChapters.filter(ch=>{
-      if(ch?.readable===false)return false;
-      if(ch?.externalUrl)return false;
-      const pages=Number(ch?.pages);
-      return !Number.isFinite(pages)||pages>0;
-    });
-    mangaState.chapters=readableChapters.length?readableChapters:allChapters;
-    const numeric=mangaState.chapters.filter(ch=>Number.isFinite(chapterNumber(ch)));
-    if(numeric.length>=Math.max(2,Math.floor(mangaState.chapters.length*.6))){
-      mangaState.chapters.sort((a,b)=>{
-        const an=chapterNumber(a),bn=chapterNumber(b);
-        if(!Number.isFinite(an))return 1;
-        if(!Number.isFinite(bn))return -1;
-        return an-bn;
-      });
-    }
+    mangaState.chapters=normalizeMangaChapters(item.chapters);
     const image=mangaImage(item.image||seed.image);
     const genres=Array.isArray(item.genres)?item.genres.filter(Boolean):[];
     const saved=mangaLibrary().some(x=>x.id===item.id);
+    const author=String(item.author||item.artist||item.authors?.[0]||'').trim();
+    const status=mangaStatusLabel(item);
+    const description=String(item.description||item.synopsis||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
     shell.innerHTML=`
       <button class="manga-details-close" type="button" aria-label="Close">×</button>
       <div class="manga-details-bg" style="background-image:url('${String(image).replace(/'/g,'%27')}')"></div>
@@ -1326,6 +1340,8 @@ async function openMangaDetails(id,seed={}){
           <span class="kicker">MANGA</span>
           <h2></h2>
           <p class="manga-details-alt"></p>
+          <div class="manga-details-facts" id="mangaDetailsFacts"></div>
+          <p class="manga-details-description" id="mangaDetailsDescription"></p>
           <div class="manga-genre-row"></div>
           <div class="manga-details-actions">
             <button class="primary" id="mangaReadFirst" type="button">Start reading</button>
@@ -1339,16 +1355,30 @@ async function openMangaDetails(id,seed={}){
       </section>`;
     $('.manga-details-copy h2',shell).textContent=mangaTitle(item);
     $('.manga-details-alt',shell).textContent=mangaAltTitle(item);
+    const facts=$('#mangaDetailsFacts',shell);
+    if(facts){
+      [status!=='MANGA'?status:'',author].filter(Boolean).forEach(value=>{
+        const span=document.createElement('span');span.textContent=value;facts.append(span);
+      });
+    }
+    const desc=$('#mangaDetailsDescription',shell);
+    if(desc){
+      desc.textContent=description||'Chapter list and reading progress are available below.';
+      desc.hidden=!description;
+    }
     const genreHost=$('.manga-genre-row',shell);
     genres.slice(0,8).forEach(genre=>{const span=document.createElement('span');span.textContent=genre;genreHost.append(span)});
     $('#mangaChapterCount',shell).textContent=mangaState.chapters.length+' chapters';
     const list=$('#mangaChapterList',shell);
-    mangaState.chapters.forEach((chapter,index)=>{
+    mangaState.chapters.map((chapter,index)=>({chapter,index})).reverse().forEach(({chapter,index})=>{
       const row=document.createElement('button');
       row.type='button';row.className='manga-chapter-row';
+      const left=document.createElement('span');left.className='manga-chapter-copy';
       const title=document.createElement('b');title.textContent=chapterLabel(chapter,index);
-      const date=document.createElement('span');date.textContent=chapter.releaseDate||'';
-      row.append(title,date);row.onclick=()=>openMangaChapter(item,mangaState.chapters,index,0);
+      const meta=document.createElement('small');meta.textContent=chapter.scanlationGroup||chapter.language||'Read chapter';
+      left.append(title,meta);
+      const date=document.createElement('span');date.className='manga-chapter-date';date.textContent=chapter.releaseDate||'';
+      row.append(left,date);row.onclick=()=>openMangaChapter(item,mangaState.chapters,index,0);
       list.append(row);
     });
     if(!list.children.length)list.innerHTML='<div class="manga-empty">No chapters available.</div>';
@@ -1385,7 +1415,7 @@ async function resumeManga(entry){
   try{
     const res=await fetch(MANGA_API+'/manga/v1/info/'+encodeURIComponent(entry.mangaId),{cache:'force-cache'});
     const item=await res.json();
-    const chapters=Array.isArray(item.chapters)?item.chapters:[];
+    const chapters=normalizeMangaChapters(item.chapters);
     let index=chapters.findIndex(x=>x.id===entry.chapterId);
     if(index<0)index=Math.max(0,Math.min(chapters.length-1,Number(entry.chapterIndex)||0));
     openMangaChapter(item,chapters,index,Number(entry.page)||0);
@@ -1405,7 +1435,7 @@ function updateMangaReader(){
     pages.innerHTML='';
     const item=reader.pages[reader.page];
     if(item){
-      const img=document.createElement('img');img.alt='Page '+(reader.page+1);img.src=mangaImage(item.img);img.className='manga-reader-page-image';pages.append(img);
+      const img=document.createElement('img');img.alt='Page '+(reader.page+1);img.src=mangaImage(item.img);img.className='manga-reader-page-image';img.onerror=()=>img.classList.add('is-broken');pages.append(img);
     }
   }
   $('#mangaPrevPage',shell).disabled=reader.page<=0;
@@ -1415,8 +1445,15 @@ function updateMangaReader(){
   saveReaderProgress();
 }
 function gotoMangaPage(delta){
-  const reader=mangaState.reader;if(!reader)return;
+  const reader=mangaState.reader;if(!reader||!reader.pages.length)return;
   reader.page=Math.max(0,Math.min(reader.pages.length-1,reader.page+delta));
+  if(reader.mode==='scroll'){
+    const target=$('.manga-reader-page-image',$('#mangaReaderPages'))[reader.page];
+    target?.scrollIntoView({behavior:'smooth',block:'start'});
+    $('#mangaReaderPage').textContent=(reader.page+1)+' / '+reader.pages.length;
+    saveReaderProgress();
+    return;
+  }
   updateMangaReader();
 }
 async function gotoMangaChapter(delta){
@@ -1453,7 +1490,7 @@ async function openMangaChapter(manga,chapters,chapterIndex,startPage=0){
   try{
     const res=await fetch(MANGA_API+'/manga/v1/read?chapterId='+encodeURIComponent(chapter.id),{cache:'force-cache'});
     const pages=await res.json().catch(()=>[]);
-    if(!res.ok||!Array.isArray(pages))throw new Error('Could not load chapter');
+    if(!res.ok||!Array.isArray(pages)||!pages.length)throw new Error('This chapter has no readable pages');
     const mode=localStorage.getItem('arc-manga-reader-mode')||'scroll';
     const zoom=Math.max(.65,Math.min(1.5,Number(localStorage.getItem('arc-manga-reader-zoom')||1)));
     mangaState.reader={manga,chapters,chapterIndex,chapter,pages,page:Math.max(0,Math.min(pages.length-1,startPage)),mode,zoom};
@@ -1462,7 +1499,7 @@ async function openMangaChapter(manga,chapters,chapterIndex,startPage=0){
     if(mode==='scroll'){
       pages.forEach((page,index)=>{
         const img=document.createElement('img');
-        img.alt='Page '+(index+1);img.loading=index<3?'eager':'lazy';img.decoding='async';img.src=mangaImage(page.img);img.className='manga-reader-page-image';img.dataset.page=String(index);host.append(img);
+        img.alt='Page '+(index+1);img.loading=index<3?'eager':'lazy';img.decoding='async';img.src=mangaImage(page.img);img.className='manga-reader-page-image';img.dataset.page=String(index);img.onerror=()=>img.classList.add('is-broken');host.append(img);
       });
       const observer=new IntersectionObserver(entries=>{
         const visible=entries.filter(x=>x.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0];
