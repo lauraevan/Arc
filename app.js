@@ -1058,11 +1058,9 @@ function mediaServerRank(server){
 async function playMedia(opts){
   $('#mediaPlayer')?.remove();
   const shell=document.createElement('div');shell.className='media-player';shell.id='mediaPlayer';
-  shell.innerHTML='<div class="media-player-bar"><div><b></b><small id="mediaPlayerStatus">Loading player…</small></div><button aria-label="Close">×</button></div><div class="media-player-stage"><div class="media-player-boot" id="mediaPlayerBoot"><b>Opening player</b><span>Connecting to Arc media…</span></div></div>';
+  shell.innerHTML='<div class="media-player-bar"><div><b></b><small id="mediaPlayerStatus">Arc player</small></div><button aria-label="Close">×</button></div><div class="media-player-stage"></div>';
   $('.media-player-bar b',shell).textContent=opts.title||'Arc';
-  let loadTimer=null;
-  const close=()=>{clearTimeout(loadTimer);shell.remove()};
-  $('.media-player-bar button',shell).onclick=close;
+  $('.media-player-bar button',shell).onclick=()=>shell.remove();
   const qs=new URLSearchParams({type:opts.type,id:String(opts.id)});
   if(opts.title)qs.set('title',opts.title);
   if(opts.year)qs.set('year',String(opts.year));
@@ -1073,32 +1071,9 @@ async function playMedia(opts){
   frame.allow='autoplay; fullscreen; picture-in-picture';
   frame.allowFullscreen=true;
   frame.referrerPolicy='no-referrer';
-  const playerUrl=()=>MEDIA_PLAYER_ORIGIN+'/api/player?'+qs.toString()+'&arc='+Date.now();
-  frame.src=playerUrl();
-  const stage=$('.media-player-stage',shell);
-  stage.append(frame);
+  frame.src=MEDIA_PLAYER_ORIGIN+'/api/player?'+qs.toString();
+  $('.media-player-stage',shell).append(frame);
   document.body.append(shell);
-  const boot=$('#mediaPlayerBoot',shell);
-  const armDeadline=()=>{
-    clearTimeout(loadTimer);
-    loadTimer=setTimeout(()=>{
-      if(!shell.isConnected||!boot)return;
-      boot.innerHTML='<b>Player did not finish loading.</b><span>The media server took too long to respond.</span><button class="secondary" type="button">Retry</button>';
-      const status=$('#mediaPlayerStatus',shell);if(status)status.textContent='Connection timed out';
-      $('button',boot)?.addEventListener('click',()=>{
-        boot.innerHTML='<b>Opening player</b><span>Trying Arc media again…</span>';
-        const status=$('#mediaPlayerStatus',shell);if(status)status.textContent='Loading player…';
-        frame.src=playerUrl();
-        armDeadline();
-      },{once:true});
-    },15000);
-  };
-  frame.addEventListener('load',()=>{
-    clearTimeout(loadTimer);
-    if(boot)boot.remove();
-    const status=$('#mediaPlayerStatus',shell);if(status)status.textContent='Arc player';
-  });
-  armDeadline();
 }
 function setupMedia(){
   $('#mediaSearchForm')?.addEventListener('submit',e=>{e.preventDefault();searchMedia($('#mediaSearchInput')?.value||'')});
