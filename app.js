@@ -1242,27 +1242,22 @@ async function loadMangaHome(force=false){
   mangaState.loading=true;
   try{
     const request=async()=>{
-      const res=await fetch(MANGA_API+'/manga/v1/home?arc='+Date.now(),{cache:'no-store'});
-      const data=await res.json().catch(()=>({}));
-      if(!res.ok)throw new Error(data.error||'Manga library unavailable');
+      const {response,data}=await fetchJsonDeadline(MANGA_API+'/manga/v1/home?arc='+Date.now(),{cache:'no-store'},12000);
+      if(!response.ok)throw new Error(data.error||'Manga library unavailable');
       return data;
     };
-
     let data=await request();
     let popular=Array.isArray(data.popular)?data.popular:[];
     let recent=Array.isArray(data.recent)?data.recent:[];
     let latest=Array.isArray(data.latest)?data.latest:recent;
-
     if(!popular.length&&!recent.length){
-      await new Promise(resolve=>setTimeout(resolve,450));
+      await new Promise(resolve=>setTimeout(resolve,350));
       data=await request();
       popular=Array.isArray(data.popular)?data.popular:[];
       recent=Array.isArray(data.recent)?data.recent:[];
       latest=Array.isArray(data.latest)?data.latest:recent;
     }
-
-    if(!popular.length&&!recent.length)throw new Error('Manga catalog is reconnecting');
-
+    if(!popular.length&&!recent.length)throw new Error('Manga catalog returned no titles.');
     mangaState.home=data;
     mangaState.loaded=true;
     mangaState.retry=0;
@@ -1274,17 +1269,24 @@ async function loadMangaHome(force=false){
     renderMangaSaved();
   }catch(err){
     mangaState.loaded=false;
-    if($('#mangaHeroTitle'))$('#mangaHeroTitle').textContent='Connecting to manga…';
-    if($('#mangaHeroText'))$('#mangaHeroText').textContent='Refreshing the manga catalog.';
-    ['#mangaPopularRow','#mangaRecentRow'].forEach(id=>{
-      const el=$(id);
-      if(el)el.innerHTML='<div class="manga-empty">Refreshing library…</div>';
-    });
-    if(mangaState.retry<3){
+    if(mangaState.retry<2){
       mangaState.retry++;
-      setTimeout(()=>{mangaState.loading=false;loadMangaHome(true)},900*mangaState.retry);
+      if($('#mangaHeroTitle'))$('#mangaHeroTitle').textContent='Reconnecting to manga…';
+      if($('#mangaHeroText'))$('#mangaHeroText').textContent='Trying the catalog again.';
+      ['#mangaPopularRow','#mangaRecentRow'].forEach(id=>{const el=$(id);if(el)el.innerHTML='<div class="manga-empty">Retrying library…</div>'});
+      const delay=650*mangaState.retry;
+      setTimeout(()=>{mangaState.loading=false;loadMangaHome(true)},delay);
       return;
     }
+    mangaState.retry=0;
+    const message=escapeHtml(err.message||'Manga library unavailable.');
+    if($('#mangaHeroTitle'))$('#mangaHeroTitle').textContent='Manga could not load';
+    if($('#mangaHeroText'))$('#mangaHeroText').textContent=err.message||'The catalog did not respond.';
+    const first=$('#mangaPopularRow');
+    if(first)first.innerHTML='<div class="manga-empty"><b>Manga did not finish loading.</b><span>'+message+'</span><button class="secondary" id="retryManga">Retry</button></div>';
+    const recent=$('#mangaRecentRow');if(recent)recent.innerHTML='<div class="manga-empty">Library unavailable.</div>';
+    const latest=$('#mangaLatestList');if(latest)latest.innerHTML='<div class="manga-latest-empty">Could not load updates.</div>';
+    setTimeout(()=>$('#retryManga')?.addEventListener('click',()=>loadMangaHome(true)),0);
   }finally{
     mangaState.loading=false;
   }
@@ -1298,6 +1300,7 @@ async function searchManga(query){
   const q=String(query||'').trim();
   if(!q){clearMangaSearch();return}
   mangaState.query=q;
+  const token=++mangaState.searchToken;
   const home=$('#mangaHome'),results=$('#mangaSearchResults'),grid=$('#mangaSearchGrid');
   if(home)home.hidden=true;
   setMangaSearchMode(true);
@@ -1305,18 +1308,20 @@ async function searchManga(query){
   if($('#mangaSearchTitle'))$('#mangaSearchTitle').textContent='Results for “'+q+'”';
   if(grid)grid.innerHTML='<div class="manga-empty">Searching…</div>';
   try{
-    const res=await fetch(MANGA_API+'/manga/v1/search?q='+encodeURIComponent(q),{cache:'no-store'});
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok)throw new Error(data.error||'Search failed');
+    const {response,data}=await fetchJsonDeadline(MANGA_API+'/manga/v1/search?q='+encodeURIComponent(q),{cache:'no-store'},10000);
+    if(token!==mangaState.searchToken)return;
+    if(!response.ok)throw new Error(data.error||'Search failed');
     grid.innerHTML='';
     const items=Array.isArray(data.results)?data.results:[];
     items.forEach(item=>grid.append(mangaCard(item,items)));
     if(!grid.children.length)grid.innerHTML='<div class="manga-empty">No manga found.</div>';
   }catch(err){
+    if(token!==mangaState.searchToken)return;
     if(grid)grid.innerHTML='<div class="manga-empty">'+escapeHtml(err.message||'Search failed.')+'</div>';
   }
 }
 function clearMangaSearch(){
+  mangaState.searchToken++;
   mangaState.query='';
   if($('#mangaSearchInput'))$('#mangaSearchInput').value='';
   if($('#mangaSearchResults'))$('#mangaSearchResults').hidden=true;
@@ -1367,9 +1372,8 @@ async function openMangaDetails(id,seed={}){
   shell.innerHTML='<div class="manga-details-loading">Opening manga…</div>';
   document.body.append(shell);
   try{
-    const res=await fetch(MANGA_API+'/manga/v1/info/'+encodeURIComponent(id),{cache:'force-cache'});
-    const item=await res.json().catch(()=>({}));
-    if(!res.ok)throw new Error(item.error||'Could not load manga');
+    const {response,data:item}=await fetchJsonDeadline(MANGA_API+'/manga/v1/info/'+encodeURIComponent(id),{cache:'force-cache'},12000);
+    if(!response.ok)throw new Error(item.error||'Could not load manga');
     mangaState.current=item;
     mangaState.chapters=normalizeMangaChapters(item.chapters);
     const image=mangaImage(item.image||seed.image);
@@ -1461,8 +1465,8 @@ function saveReaderProgress(){
 }
 async function resumeManga(entry){
   try{
-    const res=await fetch(MANGA_API+'/manga/v1/info/'+encodeURIComponent(entry.mangaId),{cache:'force-cache'});
-    const item=await res.json();
+    const {response,data:item}=await fetchJsonDeadline(MANGA_API+'/manga/v1/info/'+encodeURIComponent(entry.mangaId),{cache:'force-cache'},12000);
+    if(!response.ok)throw new Error(item.error||'Could not resume manga');
     const chapters=normalizeMangaChapters(item.chapters);
     let index=chapters.findIndex(x=>x.id===entry.chapterId);
     if(index<0)index=Math.max(0,Math.min(chapters.length-1,Number(entry.chapterIndex)||0));
@@ -1536,9 +1540,8 @@ async function openMangaChapter(manga,chapters,chapterIndex,startPage=0){
   $('.manga-reader-title span',shell).textContent=chapterLabel(chapter,chapterIndex);
   document.body.append(shell);
   try{
-    const res=await fetch(MANGA_API+'/manga/v1/read?chapterId='+encodeURIComponent(chapter.id),{cache:'force-cache'});
-    const pages=await res.json().catch(()=>[]);
-    if(!res.ok||!Array.isArray(pages)||!pages.length)throw new Error('This chapter has no readable pages');
+    const {response,data:pages}=await fetchJsonDeadline(MANGA_API+'/manga/v1/read?chapterId='+encodeURIComponent(chapter.id),{cache:'no-store'},18000);
+    if(!response.ok||!Array.isArray(pages)||!pages.length)throw new Error('This chapter has no readable pages');
     const mode=localStorage.getItem('arc-manga-reader-mode')||'scroll';
     const zoom=Math.max(.65,Math.min(1.5,Number(localStorage.getItem('arc-manga-reader-zoom')||1)));
     mangaState.reader={manga,chapters,chapterIndex,chapter,pages,page:Math.max(0,Math.min(pages.length-1,startPage)),mode,zoom};
