@@ -12,7 +12,7 @@ const state={games:[],homeGames:HOME_GAMES.slice(),filtered:[],visible:60,view:'
 const cloudState={games:[],filtered:[],tag:'All',featured:null,token:null,tokenExpires:0,loading:false,active:null,pingTimer:null};
 const webState={target:null,proxyUrl:null};
 const mediaState={loaded:false,loading:false,home:null,featured:null,query:'',hlsPromise:null,heroVideoToken:0,searchToken:0};
-const mangaState={loaded:false,loading:false,initialized:false,home:null,query:'',featured:null,current:null,chapters:[],reader:null,retry:0,searchToken:0};
+const mangaState={loaded:false,loading:false,initialized:false,home:null,query:'',featured:null,current:null,chapters:[],reader:null,retry:0,searchToken:0,detailsToken:0,readerToken:0,progressTimer:null,readerObserver:null};
 const musicState={query:'',results:[],queue:[],index:-1,current:null,searchController:null,initialized:false,tab:'home',player:null,playerReady:null,ytPlayerReady:null,playerUsable:false,playing:false,shuffle:false,repeat:false,timer:null,mode:'idle',playToken:0,directAvailable:false,capabilitiesLoaded:false,audioCtx:null,audioSource:null,filters:[],splitter:null,merger:null,crossL:null,crossR:null,delayL:null,delayR:null,compressor:null,analyser:null,master:null,eq:[0,0,0,0,0,0],spatial:0,normalize:false,motion:true,lyricsCache:new Map(),lyricsData:null,activeLyric:-1,homeTracks:[],homeMade:[],homeLoaded:false,vizRaf:0};
 const WALLPAPER_THEMES={
   fireflies:{
@@ -1103,7 +1103,7 @@ function mangaLibrary(){
   }catch(_){return[]}
 }
 function setMangaLibrary(items){
-  localStorage.setItem('arc-manga-library',JSON.stringify(items.slice(0,80)));
+  try{localStorage.setItem('arc-manga-library',JSON.stringify(items.slice(0,80)))}catch(_){}
   renderMangaSaved();
 }
 function mangaProgress(){
@@ -1112,10 +1112,10 @@ function mangaProgress(){
     return Array.isArray(value)?value.filter(x=>x?.mangaId):[];
   }catch(_){return[]}
 }
-function setMangaProgress(entry){
+function setMangaProgress(entry,render=true){
   const next=[entry,...mangaProgress().filter(x=>x.mangaId!==entry.mangaId)].slice(0,30);
-  localStorage.setItem('arc-manga-progress',JSON.stringify(next));
-  renderMangaContinue();
+  try{localStorage.setItem('arc-manga-progress',JSON.stringify(next))}catch(_){}
+  if(render)renderMangaContinue();
 }
 function mangaStatusLabel(item){
   const raw=String(item?.status||item?.state||'').trim();
