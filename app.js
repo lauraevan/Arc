@@ -1510,56 +1510,76 @@ async function gotoMangaChapter(delta){
   await openMangaChapter(reader.manga,reader.chapters,next,0);
 }
 async function openMangaChapter(manga,chapters,chapterIndex,startPage=0){
+  const token=++mangaState.readerToken;
+  cleanupMangaReader(false);
   $('#mangaReader')?.remove();
   const chapter=chapters[chapterIndex];
   if(!chapter)return;
   const shell=document.createElement('div');
   shell.className='manga-reader';shell.id='mangaReader';
-  shell.innerHTML=`
-    <header class="manga-reader-toolbar">
-      <button type="button" id="mangaReaderClose" aria-label="Close reader">×</button>
-      <div class="manga-reader-title"><b></b><span></span></div>
-      <div class="manga-reader-tools">
-        <button type="button" id="mangaPrevChapter" title="Previous chapter">‹ Ch.</button>
-        <button type="button" id="mangaPrevPage" title="Previous page">‹</button>
-        <span id="mangaReaderPage">1 / 1</span>
-        <button type="button" id="mangaNextPage" title="Next page">›</button>
-        <button type="button" id="mangaNextChapter" title="Next chapter">Ch. ›</button>
-        <button type="button" id="mangaReaderMode">Scroll</button>
-        <button type="button" id="mangaZoomOut" aria-label="Zoom out">−</button>
-        <button type="button" id="mangaZoomIn" aria-label="Zoom in">+</button>
-      </div>
-    </header>
-    <main class="manga-reader-pages" id="mangaReaderPages"><div class="manga-reader-loading">Loading chapter…</div></main>`;
+  shell.innerHTML='<header class="manga-reader-toolbar">'+
+    '<button type="button" id="mangaReaderClose" aria-label="Close reader">×</button>'+
+    '<div class="manga-reader-title"><b></b><span></span></div>'+
+    '<div class="manga-reader-tools">'+
+    '<button type="button" id="mangaPrevChapter" title="Previous chapter">‹ Ch.</button>'+
+    '<button type="button" id="mangaPrevPage" title="Previous page">‹</button>'+
+    '<span id="mangaReaderPage">1 / 1</span>'+
+    '<button type="button" id="mangaNextPage" title="Next page">›</button>'+
+    '<button type="button" id="mangaNextChapter" title="Next chapter">Ch. ›</button>'+
+    '<button type="button" id="mangaReaderMode">Scroll</button>'+
+    '<button type="button" id="mangaZoomOut" aria-label="Zoom out">−</button>'+
+    '<button type="button" id="mangaZoomIn" aria-label="Zoom in">+</button>'+
+    '</div></header><main class="manga-reader-pages" id="mangaReaderPages"><div class="manga-reader-loading">Loading chapter…</div></main>';
   $('.manga-reader-title b',shell).textContent=mangaTitle(manga);
   $('.manga-reader-title span',shell).textContent=chapterLabel(chapter,chapterIndex);
   document.body.append(shell);
+  const close=()=>{
+    if(token===mangaState.readerToken)mangaState.readerToken++;
+    cleanupMangaReader(true);
+    shell.remove();
+  };
+  $('#mangaReaderClose',shell).onclick=close;
   try{
-    const {response,data:pages}=await fetchJsonDeadline(MANGA_API+'/manga/v1/read?chapterId='+encodeURIComponent(chapter.id),{cache:'no-store'},24000);
-    if(!response.ok||!Array.isArray(pages)||!pages.length)throw new Error('This chapter has no readable pages');
-    const mode=localStorage.getItem('arc-manga-reader-mode')||'scroll';
-    const zoom=Math.max(.65,Math.min(1.5,Number(localStorage.getItem('arc-manga-reader-zoom')||1)));
+    const url=MANGA_API+'/manga/v1/read?chapterId='+encodeURIComponent(chapter.id)+'&arc='+Date.now();
+    const {response,data}=await fetchJsonDeadline(url,{cache:'no-store'},24000);
+    if(token!==mangaState.readerToken||!shell.isConnected)return;
+    if(!response.ok)throw new Error(data?.error||'Chapter pages unavailable');
+    const pages=Array.isArray(data)?data.filter(page=>page?.img):[];
+    if(!pages.length)throw new Error('This chapter has no readable pages');
+    let mode='scroll',zoom=1;
+    try{
+      mode=localStorage.getItem('arc-manga-reader-mode')||'scroll';
+      zoom=Math.max(.65,Math.min(1.5,Number(localStorage.getItem('arc-manga-reader-zoom')||1)));
+    }catch(_){}
+    if(mode!=='scroll'&&mode!=='page')mode='scroll';
     mangaState.reader={manga,chapters,chapterIndex,chapter,pages,page:Math.max(0,Math.min(pages.length-1,startPage)),mode,zoom};
-    const host=$('#mangaReaderPages',shell);
-    host.innerHTML='';
+    const host=$('#mangaReaderPages',shell);host.innerHTML='';
     if(mode==='scroll'){
       pages.forEach((page,index)=>{
         const img=document.createElement('img');
-        img.alt='Page '+(index+1);img.loading=index<3?'eager':'lazy';img.decoding='async';img.src=mangaImage(page.img);img.className='manga-reader-page-image';img.dataset.page=String(index);img.onerror=()=>img.classList.add('is-broken');host.append(img);
+        img.alt='Page '+(index+1);img.loading=index<3?'eager':'lazy';img.decoding='async';
+        img.src=mangaImage(page.img);img.className='manga-reader-page-image';img.dataset.page=String(index);
+        img.onerror=()=>img.classList.add('is-broken');host.append(img);
       });
-      const observer=new IntersectionObserver(entries=>{
-        const visible=entries.filter(x=>x.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0];
-        if(visible&&mangaState.reader?.mode==='scroll'){
-          mangaState.reader.page=Number(visible.target.dataset.page)||0;
-          $('#mangaReaderPage',shell).textContent=(mangaState.reader.page+1)+' / '+Math.max(1,pages.length);
-          saveReaderProgress();
-        }
-      },{threshold:[.25,.5,.75]});
-      $$('.manga-reader-page-image',host).forEach(img=>observer.observe(img));
-      setTimeout(()=>$$('.manga-reader-page-image',host)[mangaState.reader.page]?.scrollIntoView({block:'start'}),50);
+      if('IntersectionObserver' in window){
+        const observer=new IntersectionObserver(entries=>{
+          if(token!==mangaState.readerToken)return;
+          const visible=entries.filter(x=>x.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0];
+          if(visible&&mangaState.reader?.mode==='scroll'){
+            mangaState.reader.page=Number(visible.target.dataset.page)||0;
+            const label=$('#mangaReaderPage',shell);if(label)label.textContent=(mangaState.reader.page+1)+' / '+pages.length;
+            queueReaderProgress();
+          }
+        },{threshold:[.35,.65]});
+        mangaState.readerObserver=observer;
+        $$('.manga-reader-page-image',host).forEach(img=>observer.observe(img));
+      }
+      setTimeout(()=>{
+        if(token!==mangaState.readerToken||!shell.isConnected||!mangaState.reader)return;
+        $$('.manga-reader-page-image',host)[mangaState.reader.page]?.scrollIntoView({block:'start'});
+      },60);
     }
     updateMangaReader();
-    $('#mangaReaderClose',shell).onclick=()=>{saveReaderProgress();shell.remove();mangaState.reader=null};
     $('#mangaPrevPage',shell).onclick=()=>gotoMangaPage(-1);
     $('#mangaNextPage',shell).onclick=()=>gotoMangaPage(1);
     $('#mangaPrevChapter',shell).onclick=()=>gotoMangaChapter(-1);
@@ -1567,14 +1587,27 @@ async function openMangaChapter(manga,chapters,chapterIndex,startPage=0){
     $('#mangaReaderMode',shell).onclick=()=>{
       const reader=mangaState.reader;if(!reader)return;
       reader.mode=reader.mode==='scroll'?'page':'scroll';
-      localStorage.setItem('arc-manga-reader-mode',reader.mode);
+      try{localStorage.setItem('arc-manga-reader-mode',reader.mode)}catch(_){}
       openMangaChapter(reader.manga,reader.chapters,reader.chapterIndex,reader.page);
     };
-    $('#mangaZoomOut',shell).onclick=()=>{if(mangaState.reader){mangaState.reader.zoom=Math.max(.65,mangaState.reader.zoom-.1);localStorage.setItem('arc-manga-reader-zoom',String(mangaState.reader.zoom));updateMangaReader()}};
-    $('#mangaZoomIn',shell).onclick=()=>{if(mangaState.reader){mangaState.reader.zoom=Math.min(1.5,mangaState.reader.zoom+.1);localStorage.setItem('arc-manga-reader-zoom',String(mangaState.reader.zoom));updateMangaReader()}};
+    $('#mangaZoomOut',shell).onclick=()=>{
+      if(!mangaState.reader)return;
+      mangaState.reader.zoom=Math.max(.65,mangaState.reader.zoom-.1);
+      try{localStorage.setItem('arc-manga-reader-zoom',String(mangaState.reader.zoom))}catch(_){}
+      updateMangaReader();
+    };
+    $('#mangaZoomIn',shell).onclick=()=>{
+      if(!mangaState.reader)return;
+      mangaState.reader.zoom=Math.min(1.5,mangaState.reader.zoom+.1);
+      try{localStorage.setItem('arc-manga-reader-zoom',String(mangaState.reader.zoom))}catch(_){}
+      updateMangaReader();
+    };
   }catch(err){
-    $('#mangaReaderPages',shell).innerHTML='<div class="manga-reader-loading">'+escapeHtml(err.message||'Chapter unavailable.')+'</div>';
-    $('#mangaReaderClose',shell).onclick=()=>shell.remove();
+    if(token!==mangaState.readerToken||!shell.isConnected)return;
+    mangaState.reader=null;
+    const host=$('#mangaReaderPages',shell);
+    host.innerHTML='<div class="manga-reader-loading"><b>Chapter could not load.</b><span>'+escapeHtml(err.message||'Chapter unavailable.')+'</span><button class="secondary" id="mangaRetryChapter" type="button">Retry chapter</button></div>';
+    $('#mangaRetryChapter',shell)?.addEventListener('click',()=>openMangaChapter(manga,chapters,chapterIndex,startPage));
   }
 }
 function setupManga(){
