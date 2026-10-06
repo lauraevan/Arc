@@ -1347,18 +1347,21 @@ function chapterLabel(chapter,index){
   return chapter?.title||chapter?.chapter||('Chapter '+(index+1));
 }
 function normalizeMangaChapters(chapters){
-  const all=(Array.isArray(chapters)?chapters:[]).filter(ch=>ch?.id);
+  const source=Array.isArray(chapters)?chapters:[];
+  const seen=new Set();
+  const all=source.filter(ch=>{
+    if(!ch?.id||seen.has(ch.id))return false;
+    seen.add(ch.id);
+    return true;
+  });
   const internal=all.filter(ch=>!ch.externalUrl);
   const readable=internal.filter(ch=>ch.readable!==false);
-
-  // MangaDex often reports pages: 0 until the chapter is opened.
-  // Do not treat that metadata value as proof that the chapter is empty.
   const list=(readable.length?readable:(internal.length?internal:all)).slice();
-
   const numeric=list.filter(ch=>Number.isFinite(chapterNumber(ch)));
   if(numeric.length>=Math.max(2,Math.floor(list.length*.6))){
     list.sort((a,b)=>{
       const an=chapterNumber(a),bn=chapterNumber(b);
+      if(!Number.isFinite(an)&&!Number.isFinite(bn))return 0;
       if(!Number.isFinite(an))return 1;
       if(!Number.isFinite(bn))return -1;
       return an-bn;
@@ -1367,85 +1370,69 @@ function normalizeMangaChapters(chapters){
   return list;
 }
 async function openMangaDetails(id,seed={}){
+  const token=++mangaState.detailsToken;
   $('#mangaDetails')?.remove();
   const shell=document.createElement('div');
   shell.className='manga-details';shell.id='mangaDetails';
-  shell.innerHTML='<div class="manga-details-loading">Opening manga…</div>';
+  shell.innerHTML='<button class="manga-details-close" type="button" aria-label="Close">×</button><div class="manga-details-loading">Opening manga…</div>';
   document.body.append(shell);
+  const close=()=>{if(token===mangaState.detailsToken)mangaState.detailsToken++;shell.remove()};
+  $('.manga-details-close',shell).onclick=close;
   try{
-    const {response,data:item}=await fetchJsonDeadline(MANGA_API+'/manga/v1/info/'+encodeURIComponent(id),{cache:'force-cache'},18000);
+    const url=MANGA_API+'/manga/v1/info/'+encodeURIComponent(id)+'?arc='+Date.now();
+    const {response,data:item}=await fetchJsonDeadline(url,{cache:'no-store'},20000);
+    if(token!==mangaState.detailsToken||!shell.isConnected)return;
     if(!response.ok)throw new Error(item.error||'Could not load manga');
     mangaState.current=item;
     mangaState.chapters=normalizeMangaChapters(item.chapters);
-    const image=mangaImage(item.image||seed.image);
+    const image=mangaImage(item.image||item.cover||seed.image);
     const genres=Array.isArray(item.genres)?item.genres.filter(Boolean):[];
     const saved=mangaLibrary().some(x=>x.id===item.id);
     const author=String(item.author||item.artist||item.authors?.[0]||'').trim();
     const status=mangaStatusLabel(item);
     const description=String(item.description||item.synopsis||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
-    shell.innerHTML=`
-      <button class="manga-details-close" type="button" aria-label="Close">×</button>
-      <div class="manga-details-bg" style="background-image:url('${String(image).replace(/'/g,'%27')}')"></div>
-      <div class="manga-details-scrim"></div>
-      <div class="manga-details-layout">
-        <img class="manga-details-cover" alt="" src="${image}">
-        <div class="manga-details-copy">
-          <span class="kicker">MANGA</span>
-          <h2></h2>
-          <p class="manga-details-alt"></p>
-          <div class="manga-details-facts" id="mangaDetailsFacts"></div>
-          <p class="manga-details-description" id="mangaDetailsDescription"></p>
-          <div class="manga-genre-row"></div>
-          <div class="manga-details-actions">
-            <button class="primary" id="mangaReadFirst" type="button">Start reading</button>
-            <button class="secondary" id="mangaSave" type="button">${saved?'Saved':'Save'}</button>
-          </div>
-        </div>
-      </div>
-      <section class="manga-chapters">
-        <div class="manga-section-head"><div><span>CHAPTERS</span><h2>All chapters</h2></div><span id="mangaChapterCount"></span></div>
-        <div class="manga-chapter-list" id="mangaChapterList"></div>
-      </section>`;
+    shell.innerHTML='<button class="manga-details-close" type="button" aria-label="Close">×</button>'+
+      '<div class="manga-details-bg"></div><div class="manga-details-scrim"></div>'+
+      '<div class="manga-details-layout"><img class="manga-details-cover" alt=""><div class="manga-details-copy">'+
+      '<span class="kicker">MANGA</span><h2></h2><p class="manga-details-alt"></p><div class="manga-details-facts" id="mangaDetailsFacts"></div>'+
+      '<p class="manga-details-description" id="mangaDetailsDescription"></p><div class="manga-genre-row"></div>'+
+      '<div class="manga-details-actions"><button class="primary" id="mangaReadFirst" type="button">Start reading</button>'+
+      '<button class="secondary" id="mangaSave" type="button">'+(saved?'Saved':'Save')+'</button></div></div></div>'+
+      '<section class="manga-chapters"><div class="manga-section-head"><div><span>CHAPTERS</span><h2>All chapters</h2></div><span id="mangaChapterCount"></span></div>'+
+      '<div class="manga-chapter-list" id="mangaChapterList"></div></section>';
+    $('.manga-details-close',shell).onclick=close;
+    const bg=$('.manga-details-bg',shell);if(bg&&image)bg.style.backgroundImage='url("'+String(image).replace(/"/g,'%22')+'")';
+    const cover=$('.manga-details-cover',shell);if(cover){cover.src=image;cover.onerror=()=>{cover.style.opacity='.16'}}
     $('.manga-details-copy h2',shell).textContent=mangaTitle(item);
     $('.manga-details-alt',shell).textContent=mangaAltTitle(item);
     const facts=$('#mangaDetailsFacts',shell);
-    if(facts){
-      [status!=='MANGA'?status:'',author].filter(Boolean).forEach(value=>{
-        const span=document.createElement('span');span.textContent=value;facts.append(span);
-      });
-    }
-    const desc=$('#mangaDetailsDescription',shell);
-    if(desc){
-      desc.textContent=description||'Chapter list and reading progress are available below.';
-      desc.hidden=!description;
-    }
+    [status!=='MANGA'?status:'',author].filter(Boolean).forEach(value=>{const span=document.createElement('span');span.textContent=value;facts?.append(span)});
+    const desc=$('#mangaDetailsDescription',shell);if(desc){desc.textContent=description;desc.hidden=!description}
     const genreHost=$('.manga-genre-row',shell);
-    genres.slice(0,8).forEach(genre=>{const span=document.createElement('span');span.textContent=genre;genreHost.append(span)});
+    genres.slice(0,8).forEach(genre=>{const span=document.createElement('span');span.textContent=genre;genreHost?.append(span)});
     $('#mangaChapterCount',shell).textContent=mangaState.chapters.length+' chapters';
     const list=$('#mangaChapterList',shell);
     mangaState.chapters.map((chapter,index)=>({chapter,index})).reverse().forEach(({chapter,index})=>{
-      const row=document.createElement('button');
-      row.type='button';row.className='manga-chapter-row';
+      const row=document.createElement('button');row.type='button';row.className='manga-chapter-row';
       const left=document.createElement('span');left.className='manga-chapter-copy';
       const title=document.createElement('b');title.textContent=chapterLabel(chapter,index);
       const meta=document.createElement('small');meta.textContent=chapter.scanlationGroup||chapter.language||'Read chapter';
       left.append(title,meta);
       const date=document.createElement('span');date.className='manga-chapter-date';date.textContent=chapter.releaseDate||'';
-      row.append(left,date);row.onclick=()=>openMangaChapter(item,mangaState.chapters,index,0);
-      list.append(row);
+      row.append(left,date);row.onclick=()=>openMangaChapter(item,mangaState.chapters,index,0);list.append(row);
     });
-    if(!list.children.length)list.innerHTML='<div class="manga-empty">No chapters available.</div>';
-    $('.manga-details-close',shell).onclick=()=>shell.remove();
-    $('#mangaSave',shell).onclick=e=>{
-      const on=toggleMangaSaved(item);
-      e.currentTarget.textContent=on?'Saved':'Save';
-    };
-    $('#mangaReadFirst',shell).onclick=()=>{
-      if(mangaState.chapters.length)openMangaChapter(item,mangaState.chapters,0,0);
-    };
+    const readFirst=$('#mangaReadFirst',shell);
+    if(!mangaState.chapters.length){
+      list.innerHTML='<div class="manga-empty"><b>No chapters were returned.</b><span>This can be temporary.</span><button class="secondary" id="mangaRetryDetails" type="button">Refresh chapters</button></div>';
+      if(readFirst)readFirst.disabled=true;
+      $('#mangaRetryDetails',shell)?.addEventListener('click',()=>openMangaDetails(id,item));
+    }else if(readFirst){readFirst.onclick=()=>openMangaChapter(item,mangaState.chapters,0,0)}
+    $('#mangaSave',shell).onclick=e=>{const on=toggleMangaSaved(item);e.currentTarget.textContent=on?'Saved':'Save'};
   }catch(err){
-    shell.innerHTML='<button class="manga-details-close" type="button" aria-label="Close">×</button><div class="manga-details-loading">'+escapeHtml(err.message||'Could not load manga.')+'</div>';
-    $('.manga-details-close',shell).onclick=()=>shell.remove();
+    if(token!==mangaState.detailsToken||!shell.isConnected)return;
+    shell.innerHTML='<button class="manga-details-close" type="button" aria-label="Close">×</button><div class="manga-details-loading"><b>Could not open manga.</b><span>'+escapeHtml(err.message||'Manga details unavailable.')+'</span><button class="secondary" id="mangaRetryDetails" type="button">Retry</button></div>';
+    $('.manga-details-close',shell).onclick=close;
+    $('#mangaRetryDetails',shell)?.addEventListener('click',()=>openMangaDetails(id,seed));
   }
 }
 function saveReaderProgress(){
