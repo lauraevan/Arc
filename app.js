@@ -1435,35 +1435,40 @@ async function openMangaDetails(id,seed={}){
     $('#mangaRetryDetails',shell)?.addEventListener('click',()=>openMangaDetails(id,seed));
   }
 }
-function saveReaderProgress(){
+function saveReaderProgress(render=false){
   const reader=mangaState.reader;
   if(!reader?.manga||!reader.chapter)return;
   setMangaProgress({
-    mangaId:reader.manga.id,
-    title:mangaTitle(reader.manga),
-    image:reader.manga.image||'',
-    chapterId:reader.chapter.id,
-    chapterTitle:chapterLabel(reader.chapter,reader.chapterIndex),
-    chapterIndex:reader.chapterIndex,
-    page:reader.page,
-    totalPages:reader.pages.length,
-    mode:reader.mode,
-    updatedAt:Date.now()
-  });
+    mangaId:reader.manga.id,title:mangaTitle(reader.manga),image:reader.manga.image||reader.manga.cover||'',
+    chapterId:reader.chapter.id,chapterTitle:chapterLabel(reader.chapter,reader.chapterIndex),chapterIndex:reader.chapterIndex,
+    page:reader.page,totalPages:reader.pages.length,mode:reader.mode,updatedAt:Date.now()
+  },render);
+}
+function queueReaderProgress(){
+  clearTimeout(mangaState.progressTimer);
+  mangaState.progressTimer=setTimeout(()=>saveReaderProgress(false),260);
+}
+function cleanupMangaReader(renderProgress=true){
+  clearTimeout(mangaState.progressTimer);mangaState.progressTimer=null;
+  try{mangaState.readerObserver?.disconnect()}catch(_){}
+  mangaState.readerObserver=null;
+  if(mangaState.reader)saveReaderProgress(renderProgress);
+  mangaState.reader=null;
 }
 async function resumeManga(entry){
   try{
-    const {response,data:item}=await fetchJsonDeadline(MANGA_API+'/manga/v1/info/'+encodeURIComponent(entry.mangaId),{cache:'force-cache'},18000);
+    const url=MANGA_API+'/manga/v1/info/'+encodeURIComponent(entry.mangaId)+'?arc='+Date.now();
+    const {response,data:item}=await fetchJsonDeadline(url,{cache:'no-store'},20000);
     if(!response.ok)throw new Error(item.error||'Could not resume manga');
     const chapters=normalizeMangaChapters(item.chapters);
+    if(!chapters.length)throw new Error('No chapters available');
     let index=chapters.findIndex(x=>x.id===entry.chapterId);
     if(index<0)index=Math.max(0,Math.min(chapters.length-1,Number(entry.chapterIndex)||0));
-    openMangaChapter(item,chapters,index,Number(entry.page)||0);
-  }catch{}
+    await openMangaChapter(item,chapters,index,Number(entry.page)||0);
+  }catch{openMangaDetails(entry.mangaId,entry)}
 }
 function updateMangaReader(){
-  const reader=mangaState.reader;
-  const shell=$('#mangaReader');
+  const reader=mangaState.reader;const shell=$('#mangaReader');
   if(!reader||!shell)return;
   $('#mangaReaderPage',shell).textContent=(reader.page+1)+' / '+Math.max(1,reader.pages.length);
   $('#mangaReaderMode',shell).textContent=reader.mode==='scroll'?'Scroll':'Pages';
@@ -1475,24 +1480,26 @@ function updateMangaReader(){
     pages.innerHTML='';
     const item=reader.pages[reader.page];
     if(item){
-      const img=document.createElement('img');img.alt='Page '+(reader.page+1);img.src=mangaImage(item.img);img.className='manga-reader-page-image';img.onerror=()=>img.classList.add('is-broken');pages.append(img);
+      const img=document.createElement('img');img.alt='Page '+(reader.page+1);img.src=mangaImage(item.img);img.className='manga-reader-page-image';
+      img.onerror=()=>img.classList.add('is-broken');pages.append(img);
+      const next=reader.pages[reader.page+1];if(next){const preload=new Image();preload.src=mangaImage(next.img)}
     }
   }
   $('#mangaPrevPage',shell).disabled=reader.page<=0;
   $('#mangaNextPage',shell).disabled=reader.page>=reader.pages.length-1;
   $('#mangaPrevChapter',shell).disabled=reader.chapterIndex<=0;
   $('#mangaNextChapter',shell).disabled=reader.chapterIndex>=reader.chapters.length-1;
-  saveReaderProgress();
+  queueReaderProgress();
 }
 function gotoMangaPage(delta){
   const reader=mangaState.reader;if(!reader||!reader.pages.length)return;
   reader.page=Math.max(0,Math.min(reader.pages.length-1,reader.page+delta));
   if(reader.mode==='scroll'){
-    const target=$('.manga-reader-page-image',$('#mangaReaderPages'))[reader.page];
-    target?.scrollIntoView({behavior:'smooth',block:'start'});
-    $('#mangaReaderPage').textContent=(reader.page+1)+' / '+reader.pages.length;
-    saveReaderProgress();
-    return;
+    const host=$('#mangaReaderPages');
+    const target=$$('.manga-reader-page-image',host)[reader.page];
+    target?.scrollIntoView({behavior:document.body.classList.contains('reduce-motion')?'auto':'smooth',block:'start'});
+    const label=$('#mangaReaderPage');if(label)label.textContent=(reader.page+1)+' / '+reader.pages.length;
+    queueReaderProgress();return;
   }
   updateMangaReader();
 }
